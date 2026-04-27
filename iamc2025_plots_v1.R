@@ -1,0 +1,546 @@
+require(tidyverse)
+require(quitte)
+require(magclass)
+require(lucode2)
+
+
+# mifpaths <- Sys.glob("output/*-rem-5/REMIND_generic*.mif")
+mifpaths <- Sys.glob("clusterdown/REMIND_generic*.mif")
+mifpaths <- mifpaths[str_detect(mifpaths, "withoutPlus", negate = TRUE)]
+
+dummif <- read.report(mifpaths[1])
+
+c(
+    getItems(dummif[[1]]$REMIND, 3),
+    getItems(dummif[[1]]$MAgPIE, 3)
+) %>% write.csv("varlist_magclass.csv", row.names = F)
+
+extractvarsrem <- c(
+    "Emi|CO2 (Mt CO2/yr)",
+    "Emi|CO2|+|Energy (Mt CO2/yr)",
+    "Emi|CO2|+|Industrial Processes (Mt CO2/yr)",
+    "Emi|CO2|+|Land-Use Change (Mt CO2/yr)",
+    "Emi|CO2|+|Waste (Mt CO2/yr)",
+    "Emi|CO2|+|non-ES CDR (Mt CO2/yr)",
+    "Emi|CO2|CDR (Mt CO2/yr)",
+    "Emi|CO2|CDR|+|BECCS (Mt CO2/yr)",
+    "Emi|CO2|CDR|+|DACCS (Mt CO2/yr)",
+    "Emi|CO2|CDR|+|EW (Mt CO2/yr)",
+    "Emi|CO2|CDR|+|Land-Use Change (Mt CO2/yr)",
+    "Emi|CO2|CDR|+|Materials (Mt CO2/yr)",
+    "Emi|CO2|CDR|+|OAE (Mt CO2/yr)",
+    "Emi|CO2|CDR|+|Synthetic Fuels CCS (Mt CO2/yr)",
+    "Emi|CO2|Cumulated (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR|BECCS (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR|BECCS|Demand Side (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR|BECCS|Pe2Se (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR|DACCS (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR|EW (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR|Land-Use Change (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR|Materials (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR|OAE (Mt CO2)",
+    "Emi|CO2|Cumulated|CDR|Synthetic Fuels CCS (Mt CO2)",
+    "Price|Carbon (US$2017/t CO2)",
+    "MAGICC7 AR6|Surface Temperature (GSAT)|33p0th Percentile (K)",
+    "MAGICC7 AR6|Surface Temperature (GSAT)|50p0th Percentile (K)",
+    "MAGICC7 AR6|Surface Temperature (GSAT)|66p0th Percentile (K)",
+    "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile (K)"
+)
+extractvarsmag <- c(
+    "Resources|Land Cover|Forest|+|Natural Forest (million ha)",
+    "Resources|Land Cover|Forest|+|Planted Forest (million ha)",
+    "Resources|Land Cover|+|Cropland (million ha)",
+    "Resources|Land Cover|+|Forest (million ha)",
+    "Resources|Land Cover|+|Other Land (million ha)",
+    "Resources|Land Cover|+|Pastures and Rangelands (million ha)",
+    "Resources|Land Cover|+|Urban Area (million ha)",
+    "Resources|Land Cover Change|+|Cropland (million ha wrt 1995)",
+    "Resources|Land Cover Change|+|Forest (million ha wrt 1995)",
+    "Resources|Land Cover Change|+|Other Land (million ha wrt 1995)",
+    "Resources|Land Cover Change|+|Pastures and Rangelands (million ha wrt 1995)",
+    "Resources|Land Cover Change|+|Urban Area (million ha wrt 1995)",
+    "Resources|Carbon (Mt C)",
+    "Resources|Carbon|+|Litter (Mt C)",
+    "Resources|Carbon|+|Soil (Mt C)",
+    "Resources|Carbon|+|Vegetation (Mt C)",
+    "Emissions|CO2|Land RAW (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|++|Above Ground Carbon (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|++|Below Ground Carbon (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|+|Indirect (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|+|Land-use Change (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Indirect|++|Above Ground Carbon (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Indirect|++|Below Ground Carbon (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|++|Above Ground Carbon (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|++|Below Ground Carbon (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Deforestation (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Forest degradation (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Other land conversion (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Peatland (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Regrowth (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Residual (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Soil (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Timber (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Wood Harvest (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Deforestation|+|Cropland Tree Cover (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Deforestation|+|Forestry plantations (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Deforestation|+|Primary forests (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Deforestation|+|Secondary forests (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Forest degradation|+|Primary forests (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Forest degradation|+|Secondary forests (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Peatland|+|Negative (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Peatland|+|Positive (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Regrowth|+|CO2-price AR (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Regrowth|+|Cropland Tree Cover (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Regrowth|+|NPI_NDC AR (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Regrowth|+|Other Land (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Regrowth|+|Secondary Forest (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Regrowth|+|Timber Plantations (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Regrowth|CO2-price AR|+|Natural Forest (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Regrowth|CO2-price AR|+|Plantation (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Residual|+|Negative (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Residual|+|Positive (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Soil|++|Emissions (Mt CO2/yr)",
+    "Emissions|CO2|Land RAW|Land-use Change|Soil|++|Withdrawals (Mt CO2/yr)",
+    "Emissions|CO2|Land|Cumulative (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|++|Above Ground Carbon (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|++|Below Ground Carbon (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|+|Indirect (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|+|Land-use Change (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Indirect|++|Above Ground Carbon (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Indirect|++|Below Ground Carbon (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|++|Above Ground Carbon (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|++|Below Ground Carbon (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|+|Deforestation (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|+|Other land conversion (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|+|Peatland (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|+|Regrowth (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|+|Residual (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|+|Soil (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|+|Timber (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|+|Wood Harvest (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Deforestation|+|Forest degradation (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Deforestation|+|Permanent deforestation (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Deforestation|Forest degradation|+|Primary forests (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Deforestation|Forest degradation|+|Secondary forests (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Deforestation|Permanent deforestation|+|Cropland Tree Cover (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Deforestation|Permanent deforestation|+|Forestry plantations (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Deforestation|Permanent deforestation|+|Primary forests (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Deforestation|Permanent deforestation|+|Secondary forests (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Regrowth|+|CO2-price AR (Gt CO2/yr)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Regrowth|+|Cropland Tree Cover (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Regrowth|+|NPI_NDC AR (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Regrowth|+|Other Land (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Regrowth|+|Secondary Forest (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Regrowth|+|Timber Plantations (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Regrowth|CO2-price AR|+|Natural Forest (Gt CO2)",
+    "Emissions|CO2|Land|Cumulative|Land-use Change|Regrowth|CO2-price AR|+|Plantation (Gt CO2)",
+    "Productivity|Yield-increasing technological change crops (%/yr)",
+    "Productivity|Yield-increasing technological change managed pastures (%/yr)",
+    "Productivity|Landuse Intensity Indicator Tau (Index)"
+)
+
+# mifpath <- mifpaths[1]
+read_filtmif <- function(mifpath) {
+    inmag <- read.report(mifpath)
+    scen <- names(inmag)
+    frem <- inmag[[1]]$REMIND[, , extractvarsrem]
+    fmag <- inmag[[1]]$MAgPIE[, , extractvarsmag]
+    fmif <- rbind(as.quitte(frem), as.quitte(fmag)) %>%
+        mutate(scenario = scen, model = "REMIND-MAgPIE")
+    return(fmif)
+}
+
+# miflist <- lapply(mifpaths, read_filtmif)
+# inbigmif <- bind_rows(miflist)
+# saveRDS(inbigmif, "inbigmif.rds")
+
+inbigmif <- readRDS("inbigmif.rds")
+
+# inbigmif %>% select%>% select(variable) %>%
+
+allscens <- inbigmif %>%
+    select(scenario) %>%
+    unique()
+sceninfo <- allscens %>%
+    separate(scenario, c("vtag", "lsm", "ssp", "policy"), sep = "-", remove = F) %>%
+    select(-vtag) %>%
+    mutate(cbudget = ifelse(str_detect(policy, "Budg"), str_extract(policy, "[0-9][0-9][0-9]"), "NA")) %>%
+    mutate(cbudget = as.numeric(cbudget))
+
+
+bigmif <- inbigmif %>%
+    left_join(sceninfo)
+
+cumvars <- c(
+    "Emi|CO2",
+    "Emi|CO2|+|Land-Use Change"
+)
+cummif <- bigmif %>%
+    # filter(variable %in% cumvars) %>%
+    group_by_at(vars(-period, -value)) %>%
+    arrange(period, .by_group = T) %>%
+    mutate(dt = period - lag(period)) %>%
+    filter(period >= 2020) %>%
+    mutate(value = cumsum(value * dt)) %>%
+    mutate(variable = paste0(variable, "|Cum")) %>%
+    select(-dt) %>%
+    ungroup()
+bigmif <- bind_rows(bigmif, cummif)
+
+
+
+
+bigmif$variable %>% unique()
+inmag[[1]] %>%
+    as.quitte() %>%
+    select(variable) %>%
+    unique() %>%
+    filter(str_detect(variable, "Emi\\|CO2"))
+
+plt <- bigmif %>%
+    filter(
+        region == "GLO",
+        variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+    ) %>%
+    filter(str_detect(policy, "PkBudg")) %>%
+    select(scenario, period, value, cbudget, lsm) %>%
+    group_by(scenario, cbudget, lsm) %>%
+    summarise(peaktemp = max(value, na.rm = T)) %>%
+    ungroup() %>%
+    ggplot(aes(x = cbudget, y = peaktemp, color = lsm)) +
+    geom_point() +
+    facet_wrap(~lsm)
+ggsave("dummy.png")
+
+# png("dummy.png")
+# plt
+# dev.off()
+
+# ggsave("dummy.pdf")
+# pdf("dummy.pdf")
+# plot(2)
+# dev.off()
+
+# png("dummy.png")
+# plot(2)
+# dev.off()
+
+
+bigmif %>%
+    filter(
+        region == "GLO",
+        variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+    ) %>%
+    filter(str_detect(policy, "PkBudg")) %>%
+    select(scenario, period, value, cbudget, lsm) %>%
+    group_by(scenario, cbudget, lsm) %>%
+    summarise(peaktemp = max(value, na.rm = T)) %>%
+    ungroup() %>%
+    mutate(cbudget = as.numeric(cbudget)) %>%
+    ggplot(aes(x = cbudget, y = peaktemp, color = lsm)) +
+    geom_point() +
+    geom_hline(yintercept = 1.8) +
+    geom_vline(xintercept = 720) +
+    facet_wrap(~lsm)
+ggsave("peaktemp.png")
+
+
+# Temp vs. budgets
+useyear <- 2050
+bigmif %>%
+    filter(
+        region == "GLO",
+        variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+        # variable == "Emi|CO2|+|Land-Use Change|Cum"
+    ) %>%
+    filter(str_detect(policy, "PkBudg")) %>%
+    select(scenario, period, value, cbudget, lsm) %>%
+    # group_by(scenario,cbudget, lsm) %>%
+    # summarise(peakprice = max(value, na.rm = T)) %>%
+    # ungroup() %>%
+    filter(period == useyear) %>%
+    mutate(cbudget = as.numeric(cbudget)) %>%
+    filter(cbudget >= 600) %>%
+    ggplot(aes(x = cbudget, y = value, color = lsm)) +
+    geom_point(size = 3) +
+    geom_line() +
+    # geom_smooth(se = F, method = "loess") +
+    theme_bw() +
+    labs(
+        x = "Carbon Budget from 2020 [GtCO2]",
+        y = paste0("GSAT ", useyear, " 67th perc. [K]"),
+        color = "C densities from DVGM:"
+    ) +
+    # scale_y_continuous(
+    #     breaks = seq(400, 1000, by = 100),
+    #     minor_breaks = seq(400, 1000, by = 25)
+    # ) +
+    scale_x_continuous(breaks = seq(600, 720, by = 20))
+ggsave("budgetXtemp.png")
+ggsave("budgetXtemp.svg")
+
+
+# Prices vs. budgets
+bigmif %>%
+    filter(
+        region == "GLO",
+        # variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+        variable == "Price|Carbon"
+    ) %>%
+    filter(str_detect(policy, "PkBudg")) %>%
+    select(scenario, period, value, cbudget, lsm) %>%
+    group_by(scenario, cbudget, lsm) %>%
+    summarise(peakprice = max(value, na.rm = T)) %>%
+    ungroup() %>%
+    mutate(cbudget = as.numeric(cbudget)) %>%
+    filter(cbudget >= 600) %>%
+    ggplot(aes(x = cbudget, y = peakprice, color = lsm)) +
+    geom_point(size = 3) +
+    geom_line() +
+    # geom_smooth(se = F, method = "loess") +
+    theme_bw() +
+    labs(
+        x = "Carbon Budget from 2020 [GtCO2]",
+        y = "Carbon Price at net-zero [USD2017/tCO2]",
+        color = "C densities from DVGM:"
+    ) +
+    scale_y_continuous(
+        breaks = seq(400, 1000, by = 100),
+        minor_breaks = seq(400, 1000, by = 25)
+    ) +
+    scale_x_continuous(breaks = seq(600, 720, by = 20))
+ggsave("budgetXprice.png")
+ggsave("budgetXprice.svg")
+
+
+# Prices vs. cumulative LUC
+useyear <- 2050
+bigmif %>%
+    filter(
+        region == "GLO",
+        # variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+        variable == "Emi|CO2|+|Land-Use Change|Cum"
+    ) %>%
+    mutate(value = value * 1e-3) %>%
+    filter(str_detect(policy, "PkBudg")) %>%
+    select(scenario, period, value, cbudget, lsm) %>%
+    # group_by(scenario,cbudget, lsm) %>%
+    # summarise(peakprice = max(value, na.rm = T)) %>%
+    # ungroup() %>%
+    filter(period == useyear) %>%
+    mutate(cbudget = as.numeric(cbudget)) %>%
+    filter(cbudget >= 600) %>%
+    ggplot(aes(x = cbudget, y = value, color = lsm)) +
+    geom_point(size = 3) +
+    geom_line() +
+    # geom_smooth(se = F, method = "loess") +
+    theme_bw() +
+    labs(
+        x = "Carbon Budget from 2020 [GtCO2]",
+        y = paste0("Cumulative LUC emissions 2020-", useyear, " [GtCO2]"),
+        color = "C densities from DVGM:"
+    ) +
+    # scale_y_continuous(
+    #     breaks = seq(400, 1000, by = 100),
+    #     minor_breaks = seq(400, 1000, by = 25)
+    #     ) +
+    geom_hline(yintercept = 0) +
+    scale_x_continuous(breaks = seq(600, 720, by = 20))
+ggsave("budgetXlucemi.png")
+ggsave("budgetXlucemi.svg")
+
+
+# Prices vs. cumulative LUC
+useyear <- 2050
+bigmif %>%
+    filter(
+        region == "GLO",
+        # variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+        variable == "Emi|CO2|+|Energy|Cum"
+    ) %>%
+    mutate(value = value * 1e-3) %>%
+    filter(str_detect(policy, "PkBudg")) %>%
+    select(scenario, period, value, cbudget, lsm) %>%
+    # group_by(scenario,cbudget, lsm) %>%
+    # summarise(peakprice = max(value, na.rm = T)) %>%
+    # ungroup() %>%
+    filter(period == useyear) %>%
+    mutate(cbudget = as.numeric(cbudget)) %>%
+    filter(cbudget >= 600) %>%
+    ggplot(aes(x = cbudget, y = value, color = lsm)) +
+    geom_point(size = 3) +
+    geom_line() +
+    # geom_smooth(se = F, method = "loess") +
+    theme_bw() +
+    theme(legend.position = "bottom",legend.orientation = "horizontal") +
+    labs(
+        x = "Carbon Budget from 2020 [GtCO2]",
+        y = paste0("Cumulative energy systems emissions 2020-", useyear, " [GtCO2]"),
+        color = "C densities from DVGM:"
+    ) +
+    # scale_y_continuous(
+    #     breaks = seq(400, 1000, by = 100),
+    #     minor_breaks = seq(400, 1000, by = 25)
+    #     ) +
+    # geom_hline(yintercept = 0) +
+    scale_x_continuous(breaks = seq(600, 720, by = 20))
+ggsave("budgetXeneemi.png")
+ggsave("budgetXeneemi.svg")
+
+
+# Prices vs. cumulative LUC
+useyear <- 2050
+bigmif %>%
+filter(region == "GLO") %>%
+calc_addVariable(
+    emiffi = "`Emi|CO2|+|Land-Use Change|Cum` +
+            `Emi|CO2|+|Energy|Cum` +
+    `Emi|CO2|+|Industrial Processes|Cum` +
+    `Emi|CO2|+|Waste|Cum` +
+    `Emi|CO2|+|non-ES CDR|Cum`"
+) %>%filter( variable == "emiffi") %>%
+# filter(
+#     region == "GLO",
+#     # variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+#     variable == "Emi|CO2|+|Land-Use Change|Cum"
+# ) %>%
+    mutate(value = value * 1e-3) %>%
+    filter(str_detect(policy, "PkBudg")) %>%
+    select(scenario, period, value, cbudget, lsm) %>%
+    # group_by(scenario,cbudget, lsm) %>%
+    # summarise(peakprice = max(value, na.rm = T)) %>%
+    # ungroup() %>%
+    filter(period == useyear) %>%
+    mutate(cbudget = as.numeric(cbudget)) %>%
+    filter(cbudget >= 600) %>%
+    ggplot(aes(x = cbudget, y = value, color = lsm)) +
+    geom_point(size = 3) +
+    geom_line() +
+    # geom_smooth(se = F, method = "loess") +
+    theme_bw() +
+    labs(
+        x = "Carbon Budget from 2020 [GtCO2]",
+        y = paste0("Cumulative LUC emissions 2020-", useyear, " [GtCO2]"),
+        color = "C densities from DVGM:"
+    ) +
+    # scale_y_continuous(
+    #     breaks = seq(400, 1000, by = 100),
+    #     minor_breaks = seq(400, 1000, by = 25)
+    #     ) +
+    # geom_hline(yintercept = 0) +
+    scale_x_continuous(breaks = seq(600, 720, by = 20))
+ggsave("budgetXffiemi.png")
+ggsave("budgetXffiemi.svg")
+
+
+
+# Prices vs. cumulative LUC
+useyear <- 2050
+bigmif %>%
+    filter(
+        region == "GLO",
+        # variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+        variable == "Resources|Land Cover|+|Forest"
+    ) %>%
+    # mutate(value = value * 1e-3) %>%
+    filter(str_detect(policy, "PkBudg")) %>%
+    select(scenario, period, value, cbudget, lsm) %>%
+    # group_by(scenario,cbudget, lsm) %>%
+    # summarise(peakprice = max(value, na.rm = T)) %>%
+    # ungroup() %>%
+    filter(period == useyear) %>%
+    mutate(cbudget = as.numeric(cbudget)) %>%
+    filter(cbudget >= 600) %>%
+    ggplot(aes(x = cbudget, y = value, color = lsm)) +
+    geom_point(size = 3) +
+    geom_line() +
+    # geom_smooth(se = F, method = "loess") +
+    theme_bw() +
+    labs(
+        x = "Carbon Budget from 2020 [GtCO2]",
+        y = paste0("Global forest area in ", useyear, " [Mha]"),
+        color = "C densities from DVGM:"
+    ) +
+    # scale_y_continuous(
+    #     breaks = seq(400, 1000, by = 100),
+    #     minor_breaks = seq(400, 1000, by = 25)
+    #     ) +
+    # geom_hline(yintercept = 0) +
+    scale_x_continuous(breaks = seq(600, 720, by = 20))
+ggsave("budgetXforest.png")
+ggsave("budgetXforest.svg")
+
+
+# bigmif %>%
+
+# geom_hline(yintercept = 1.8) +
+# geom_vline(xintercept = 720) +
+# facet_wrap(~lsm)
+
+usebudget <- 720
+bigmif %>%
+    filter(cbudget == usebudget) %>%
+    write.mif("for_sirisha_20may.mif")
+
+
+bigmif %>%
+    filter(cbudget == usebudget) %>%
+    filter(variable %in% c(
+        "Emi|CO2|CDR|+|BECCS",
+        "Emi|CO2|CDR|+|DACCS",
+        "Emi|CO2|CDR|+|EW",
+        "Emi|CO2|CDR|+|Land-Use Change",
+        "Emi|CO2|CDR|+|Materials",
+        "Emi|CO2|CDR|+|OAE",
+        "Emi|CO2|CDR|+|Synthetic Fuels CCS"
+    )) 
+
+bigmif %>%
+    filter(cbudget == usebudget, region == "GLO") %>%
+    filter(variable %in% c(
+    "Emissions|CO2|Land RAW|Land-use Change|+|Forest degradation",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Other land conversion",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Peatland",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Regrowth",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Residual",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Soil",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Timber",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Wood Harvest"
+    )) %>%
+    mutate(variable = str_replace(variable, "Emissions\\|CO2\\|Land RAW\\|Land-use Change\\|\\+\\|", "")) %>%
+    ggplot(aes(x = period, y = value, color = lsm)) +
+    geom_line() +
+    facet_wrap(~variable, scales = "free_y") 
+
+unique(bigmif$variable)
+
+bigmif %>%
+    filter(cbudget == usebudget, region == "GLO") %>%
+    filter(variable %in% c(
+    "Resources|Land Cover|+|Forest"
+    )) %>%
+    mutate(variable = str_replace(variable, "Emissions\\|CO2\\|Land RAW\\|Land-use Change\\|\\+\\|", "")) %>%
+    ggplot(aes(x = period, y = value, color = lsm)) +
+    geom_line() +
+    facet_wrap(~variable, scales = "free_y") 
+
+bigmif %>%
+    filter(cbudget == usebudget, region == "GLO") %>%
+    filter(variable %in% c(
+    "Resources|Land Cover|+|Forest"
+    )) %>%
+    filter(lsm == "LPJml") %>%
+    arrange(period) %>%
+    mutate(delta = value - lag(value)) 
+options(width = 120)
+
+
+
+# dum <- getItems(inmag[[1]]$REMIND,3)
+# dum[6608]
+# inmag[[1]]$REMIND[,,dum[6608]] %>% as.quitte() %>% select(variable) %>% unique
+# inmag[[1]]$REMIND[,,extractvarsrem] %>% as.quitte() %>% select(variable) %>% unique
+# getItems(fmag,3)
+# fmag %>% as.quitte() %>% select(variable) %>% unique
+
