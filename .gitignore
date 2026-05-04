@@ -2,6 +2,11 @@
 /*.png
 /*.svg
 
+# Allow .svg files inside that specific directory
+!figures_manual/
+
+!figures_manual/**/*.svg
+
 # Cached data files
 /*.mif
 /*.mz
