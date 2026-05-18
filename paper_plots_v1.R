@@ -1140,7 +1140,10 @@ dum %>%
   summarise(min = min(value), max = max(value), dif = max-min,mean = min(value), dpc = 100*dif/mean)
 
 # Illustrative Stacked bar =================================
+bigmif %>% select(lsm) %>% unique 
+
 # Adjusting cumulative emissions to be since 2020 (default 2005)
+# TODO: Check this against budgets
 tempcumvars <- c(
     # "Emi|CO2|Cumulated",
     # "Emi|CO2|Cumulated|Energy and Industrial Processes",

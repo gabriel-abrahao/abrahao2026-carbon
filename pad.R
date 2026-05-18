@@ -3,6 +3,25 @@ inclimmif <- readRDS(climfname)
 
 usescen <- "C_ESM2025v05-LPJml-SSP2-PkBudg840-rem-5"
 
+inclimmif %>% select(model) %>% unique
+
+dum <- inclimmif %>% 
+  filter(
+    scenario == usescen,
+    # model == "AR6",
+    variable == "Surface Air Temperature Change",
+    quant == "q67"
+  )
+
+dum %>%
+  ggplot(aes(x = period, y = value, color = model)) +
+  geom_line()
+
+dum %>%
+  filter(model == "OCN") %>%
+  print(n=100)
+
+
 dold <- bigmif %>% 
   filter(
     region == "GLO",
