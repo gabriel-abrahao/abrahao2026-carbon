@@ -43,7 +43,7 @@ read_filtmif <- function(mifpath) {
 }
 
 # ====================================================================
-# Reading all MIFs with only selected REMIND-MAgPIE data
+# Reading all MIFs with only selected REMIND-MAgPIE data =============
 # rerun_bigmif <- TRUE
 rerun_bigmif <- FALSE
 if (rerun_bigmif || !file.exists("inbigmif.rds")) {
@@ -51,6 +51,35 @@ if (rerun_bigmif || !file.exists("inbigmif.rds")) {
   miflist <- lapply(mifpaths, read_filtmif)
   inbigmif <- bind_rows(miflist)
   saveRDS(inbigmif, "inbigmif.rds")
+  # inbigmif <- readRDS("inbigmif.rds")
+
+  # Calculating new LUC emissions split ===============================
+  inbigmif <- inbigmif %>%
+  filter(variable %in% c(
+    "Emissions|CO2|Land RAW|+|Land-use Change",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Deforestation",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Other land conversion",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Peatland",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Regrowth",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Residual",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Soil",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Timber",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Wood Harvest"
+  )) %>%
+  calc_addVariable(
+    `Emissions|CO2|Land RAW|Land-use Change|+++|Deforestation and Wood Harvest` = "`Emissions|CO2|Land RAW|Land-use Change|+|Deforestation` + `Emissions|CO2|Land RAW|Land-use Change|+|Wood Harvest`",
+    `Emissions|CO2|Land RAW|Land-use Change|+++|Regrowth` = "`Emissions|CO2|Land RAW|Land-use Change|+|Regrowth`",
+    `Emissions|CO2|Land RAW|Land-use Change|+++|Other LUC` = 
+    "`Emissions|CO2|Land RAW|Land-use Change|+|Other land conversion` +
+    `Emissions|CO2|Land RAW|Land-use Change|+|Peatland` +
+    `Emissions|CO2|Land RAW|Land-use Change|+|Residual` +
+    `Emissions|CO2|Land RAW|Land-use Change|+|Soil` +
+    `Emissions|CO2|Land RAW|Land-use Change|+|Timber`",
+    unit = "Mt CO2/yr",
+    only.new = T
+  # ) %>% tail
+  ) %>%
+  bind_rows(inbigmif, .)
 
   # Adding extended scenario info columns
   allscens <- inbigmif %>%
@@ -76,7 +105,19 @@ if (rerun_bigmif || !file.exists("inbigmif.rds")) {
     "Emi|CO2|+|non-ES CDR",
     "Emi|CO2|CDR",
     "Emi|CO2|CDR|+|BECCS",
-    "Emi|CO2|CDR|+|Land-Use Change"
+    "Emi|CO2|CDR|+|Land-Use Change",
+    "Emissions|CO2|Land RAW|+|Land-use Change",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Deforestation",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Other land conversion",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Peatland",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Regrowth",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Residual",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Soil",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Timber",
+    "Emissions|CO2|Land RAW|Land-use Change|+|Wood Harvest",
+    "Emissions|CO2|Land RAW|Land-use Change|+++|Deforestation and Wood Harvest",
+    "Emissions|CO2|Land RAW|Land-use Change|+++|Regrowth",
+    "Emissions|CO2|Land RAW|Land-use Change|+++|Other LUC"
   )
   cummif <- bigmif %>%
     filter(variable %in% cumvars) %>%
@@ -109,8 +150,9 @@ if (rerun_bigmif || !file.exists("inbigmif.rds")) {
 
 object.size(bigmif) %>% print(unit = "Mb")
 
-# ====================================================================
-# Append climate MIF and harmonized emissions in a separate mixbigmif variable
+# ==================================================================================
+# Append climate MIF and harmonized emissions ======================================
+# in a separate mixbigmif variable
 rerun_mixbigmif <- FALSE
 # rerun_mixbigmif <- TRUE
 if (rerun_mixbigmif || !file.exists("cache_mixbigmif.rds")) {
@@ -1155,17 +1197,18 @@ tempcumvars <- c(
     "Emi|CO2|+|Waste|Cum",
     "Emi|CO2|+|non-ES CDR|Cum"
   )
-temp2020 <- bigmif %>%
-  filter(variable %in% tempcumvars, region == "GLO") %>% 
+temp2020 <- bigmif %>% distinct() %>%
+  filter(variable %in% tempcumvars, region %in% c("GLO")) %>% 
   filter(period == 2020) %>%
   select(scenario, variable, value) %>%
   rename(val2020 = value)
-tempcumdata <- bigmif %>%
-  filter(variable %in% tempcumvars, region == "GLO") %>%
-  mutate(value = value*1e-3) #%>%
+tempcumdata <- bigmif %>% distinct() %>%
+  filter(variable %in% tempcumvars, region %in% c("GLO")) %>%
+  mutate(value = value*1e-3) #%>% 
   # left_join(temp2020) %>%
   # mutate(value = value - val2020)
 
+tempcumdata %>% select(variable) %>% unique
 tempcumdata <-
   tempcumdata %>%
   calc_addVariable(
@@ -1182,7 +1225,6 @@ pkemidata <- tempcumdata %>%
   # mutate(value = value*1e-3) %>%
   rename(pkemival = value, pkemiyear = period)
 
-# temppointdata <- 
 
 temppkdata <-
   tempcumdata %>%
@@ -1197,8 +1239,26 @@ temppkdata <-
   filter(period == pkemiyear) %>%
   left_join(tbudgetinfo) %>%
   filter(cbudget == tbudgetdvgm)
+temppkdata %>% select(variable) %>% unique
 
 tempmeandata <- temppkdata %>%
+  group_by(variable) %>%
+  summarize(value = mean(value))
+
+# Extra LUC variables
+luctempcumvars <- c(
+    "Emissions|CO2|Land RAW|Land-use Change|+++|Deforestation and Wood Harvest",
+    "Emissions|CO2|Land RAW|Land-use Change|+++|Regrowth",
+    "Emissions|CO2|Land RAW|Land-use Change|+++|Other LUC"
+  )
+luctemppkdata <- bigmif %>% 
+  filter(variable %in% luctempcumvars, region %in% c("GLO","World")) %>%
+    left_join(pkemidata) %>%
+  filter(period == pkemiyear) %>%
+  left_join(tbudgetinfo) %>%
+  filter(cbudget == tbudgetdvgm) 
+
+luctempmeandata <- luctemppkdata %>%
   group_by(variable) %>%
   summarize(value = mean(value))
 
