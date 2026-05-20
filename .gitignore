@@ -14,6 +14,9 @@
 /*.nc
 /*.rds
 
+# Data folders
+clusterdown_v05p1/
+
 # Lockfiles
 /.~lock*
 
