@@ -968,6 +968,10 @@ tbudgetinfo <- mixbigmif %>%
   pivot_wider(names_from = caltype, values_from = cbudget)
 tbudgetinfo
 
+# Choose a single budget for the AR6 version, they are really close
+tbudgetinfo <- tbudgetinfo %>%
+  mutate(tbudgetar6 = median(tbudgetinfo$tbudgetar6))
+
 tbudgetmif <- tbudgetinfo %>%
   pivot_longer(-lsm, names_to = "variable") %>%
   mutate(model = ifelse(variable == "tbudgetar6", "AR6", lsm)) %>%
@@ -1575,7 +1579,7 @@ histfluxmif %>%
   select(-unit) %>%
   pivot_wider(names_from = "variable", values_from = "value") %>%
   ggplot(aes(x = cVeg, y = nbp)) +
-  geom_point() +
+  geom_point(aes(color = lsm)) +
   geom_smooth(aes(group = NULL),method = "lm") +
   scale_color_manual(values = modelcolors) +
   labs(
