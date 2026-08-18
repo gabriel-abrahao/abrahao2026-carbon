@@ -12,6 +12,7 @@ source("colors_models_v1.R")
 # REMIND-MAgPIE variables to keep from the MIF
 # extractvarsrem and extractvarsmag variables come from here
 source("extractvars_v1.R")
+source("functions_v1.R")
 
 # Master setup for choosing scenarios in plots
 mlowbudget <- 540
@@ -40,6 +41,7 @@ mifpaths <- mifpaths[str_detect(mifpaths, "withoutPlus", negate = TRUE)]
 # rerun_bigmif <- TRUE
 rerun_bigmif <- FALSE
 rerun_mixbigmif <- FALSE
+# rerun_bigmif <- TRUE
 # rerun_mixbigmif <- TRUE
 
 # ====================================================================
@@ -2065,6 +2067,94 @@ bigmif %>%
 # scale_x_continuous(breaks = seq(600, 720, by = 20))
 ggsave("cdr_isolines.png", height = 4, width = 10)
 ggsave("cdr_isolines.svg", height = 4, width = 10)
+
+# ===================================================================
+# CDR isoline plots
+# ===================================================================
+
+useyears <- c(2050, 2100)
+usebudget <- musebudget
+
+
+str(bigmif)
+
+str(armif)
+
+armif <- bigmif %>%
+  filter(
+    region == "GLO",
+    variable %in% c(
+      "Resources|Land Cover Change|Forest|Planted Forest|Natural|+|CO2-price AR",
+      "Resources|Land Cover Change|Forest|Planted Forest|Plantations|+|CO2-price AR"
+    )) %>%
+    calc_addVariable(
+      "Resources|Land Cover Change|Forest|Planted Forest|CO2-price AR" = "`Resources|Land Cover Change|Forest|Planted Forest|Natural|+|CO2-price AR` + `Resources|Land Cover Change|Forest|Planted Forest|Natural|+|CO2-price AR`",
+      units = "million ha wrt 1995", only.new = T
+    ) #%>%
+
+usemif <- bigmif %>%
+  filter(
+    region == "GLO",
+    variable %in% c(
+      "Resources|Land Cover|Cropland|Croparea|+|Bioenergy crops"
+    )) %>%
+    bind_rows(armif) %>%
+    rebase_to_period(ref_period = 2020) %>%
+    calc_addVariable(
+      "Land Cover Change|CO2-price AR and Bioenergy crops" = "`Resources|Land Cover|Cropland|Croparea|+|Bioenergy crops` + `Resources|Land Cover Change|Forest|Planted Forest|CO2-price AR`",
+      units = "million ha wrt 2020", only.new = F
+    ) 
+
+
+xvarname <- "Resources|Land Cover Change|Forest|Planted Forest|CO2-price AR"
+yvarname <- "Resources|Land Cover|Cropland|Croparea|+|Bioenergy crops"
+zvarname <- "Land Cover Change|CO2-price AR and Bioenergy crops"
+
+usemif %>%
+  filter(
+    region == "GLO",
+    # variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+    variable %in% c(xvarname, yvarname, zvarname)
+  ) %>%
+  # mutate(value = value * 1e-3 * -1) %>% # MtCO2 to GtCO2 and make positive
+  filter(str_detect(policy, "PkBudg")) %>%
+  filter(cbudget == usebudget) %>%
+  mutate(variable = case_when(
+    variable == xvarname ~ "xvar",
+    variable == yvarname ~ "yvar",
+    variable == zvarname ~ "zvar"
+  )) %>%
+  select(scenario, period, variable, value, cbudget, lsm) %>%
+  filter(period %in% useyears) %>%
+  pivot_wider(names_from = variable, values_from = value) %>%
+  # mutate(cbudget = as.numeric(cbudget)) %>%
+  # filter(cbudget >= 600) %>%
+  ggplot(aes(x = xvar, y = yvar, color = lsm)) +
+  geom_textabline(
+    aes(intercept = alpha, slope = beta, label = alpha),
+    color = "grey70",
+    data = data.frame(alpha = seq(0, 1000, 20), beta = -1)
+  ) +
+  geom_abline(aes(intercept = zvar, slope = -1, color = lsm)) +
+  # geom_abline(intercept = seq(0,1000,10), slope = -1, color = "grey70") +
+  geom_point(size = 3) +
+  theme_bw() +
+  labs(
+    x = "CO2-induced afforetation since 2020 [MHa]",
+    y = "New area for bioenergy crops since 2020 [MHa]",
+    color = "C densities from DVGM:"
+  ) +
+  # scale_y_continuous(
+  #     breaks = seq(400, 1000, by = 100),
+  #     minor_breaks = seq(400, 1000, by = 25)
+  #     ) +
+  # geom_hline(yintercept = 0) +
+  facet_wrap(~period, scales = "free") +
+  scale_color_manual(values = modelcolors)
+# theme(legend.position = "bottom", legend.orientation = "horizontal") +
+# scale_x_continuous(breaks = seq(600, 720, by = 20))
+ggsave("cdr_isolines_area.png", height = 4, width = 10)
+ggsave("cdr_isolines_area.svg", height = 4, width = 10)
 
 
 # ===================================================================
