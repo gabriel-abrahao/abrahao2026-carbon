@@ -479,6 +479,9 @@ mixbigmif %>%
   # filter(lsm %in% illumodels) %>%
   filter(caltype == "AR6 Ensemble") %>%
   filter(cbudget == musebudget) %>%
+  # select(lsm, cbudget, period, variable, value) %>%
+  # as.data.frame() %>%
+  # print(digits = 5)
   summarize(
     maxvalue = max(value, na.rm = T),
     minvalue = min(value, na.rm = T),
@@ -1003,7 +1006,7 @@ combmif <- mixbigmif %>%
 combmif %>%
   bind_rows(
     tbudgetmif %>%
-      mutate(model = ifelse(model == "AR6","AR6 Ensemble","Calibrated to DVGM")) %>%
+      mutate(model = ifelse(model == "AR6","Density effect", "Density + Budget effects")) %>%
       left_join(rename(xmif, value = cbudget))
     ) -> dum#%>%
 dum %>%    
@@ -2169,6 +2172,89 @@ bigmif %>%
 # scale_x_continuous(breaks = seq(600, 720, by = 20))
 ggsave("cdr_isolines.png", height = 4, width = 10)
 ggsave("cdr_isolines.svg", height = 4, width = 10)
+
+# CDR isoline plots
+# ===================================================================
+
+useyears <- c(2050, 2100)
+usebudget <- musebudget
+
+xvarname <- "Emi|CO2|Cumulated|CDR|Land-Use Change"
+yvarname <- "Emi|CO2|Cumulated|CDR|BECCS"
+zvarname <- "Emi|CO2|Cumulated|CDR"
+cdrdata <- bigmif %>%
+  filter(
+    region == "GLO",
+    # variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
+    variable %in% c(xvarname, yvarname, zvarname)
+  ) %>%
+  mutate(value = value * 1e-3 * -1) %>% # MtCO2 to GtCO2 and make positive
+  filter(str_detect(policy, "PkBudg")) %>%
+  filter(cbudget == usebudget) %>%
+  mutate(variable = case_when(
+    variable == xvarname ~ "xvar",
+    variable == yvarname ~ "yvar",
+    variable == zvarname ~ "zvar"
+  )) %>%
+  select(scenario, period, variable, value, cbudget, lsm) %>%
+  filter(period %in% useyears) %>%
+  pivot_wider(names_from = variable, values_from = value) %>%
+  mutate(rvar = zvar -(yvar + xvar)) 
+
+cdrdata %>%
+  # mutate(cbudget = as.numeric(cbudget)) %>%
+  # filter(cbudget >= 600) %>%
+  ggplot(aes(x = xvar, y = yvar, color = lsm)) +
+  geom_textabline(
+    aes(intercept = alpha, slope = beta, label = alpha),
+    color = "grey70",
+    data = data.frame(alpha = seq(20, 1000, 40), beta = -1)
+  ) +
+  geom_abline(aes(intercept = zvar, slope = -1, color = lsm), show.legend = FALSE) +
+  # geom_abline(intercept = seq(0,1000,10), slope = -1, color = "grey70") +
+  geom_point(size = 3) +
+  geom_segment(
+      aes(x = xvar, y = yvar, xend = xvar + rvar, yend = yvar),
+      # color = "grey70",
+      linewidth = 0.1,
+      # linetype = "dashed"
+      show.legend = FALSE
+    ) +
+  geom_text(aes(
+    x = xvar + rvar/2, y = yvar,
+    label = round(rvar,0)
+    ),
+    vjust = -0.5, # bottom-aligned: text sits above y
+    size = 0.8 * 3.88, # 3.88mm is the geom_text default
+    show.legend = FALSE
+    ) +
+  theme_bw() +
+  labs(
+    x = "Cumulative LUC CDR since 2020 [GtCO2]",
+    y = "Cumulative BECCS CDR since 2020 [GtCO2]",
+    color = "C densities from DVGM:"
+  ) +
+  # scale_y_continuous(
+  #     breaks = seq(400, 1000, by = 100),
+  #     minor_breaks = seq(400, 1000, by = 25)
+  #     ) +
+  # geom_hline(yintercept = 0) +
+  facet_wrap(~period, scales = "free") +
+  # pad each panel by 10% of its own data range (default is 5%)
+  scale_x_continuous(expand = expansion(mult = 0.1)) +
+  scale_y_continuous(expand = expansion(mult = 0.1)) +
+  scale_color_manual(values = modelcolors) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold", size = rel(1.0))
+    )
+# scale_x_continuous(breaks = seq(600, 720, by = 20))
+ggsave("cdr_isolines_v2.png", height = 5, width = 9)
+ggsave("cdr_isolines_v2.svg", height = 5, width = 9)
+
 
 
 # ===================================================================
