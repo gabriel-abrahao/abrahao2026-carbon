@@ -957,7 +957,7 @@ bigmif %>%
   )
 ggsave("summary_basic_tbudget2K67.png", width = 10, height = 8)
 
-# Summary with same variables as previous section
+# Summary (main) with same variables as previous section ==========================
 xvarname <- "Emi|CO2|+|Land-Use Change|Cum"
 xmif <- bigmif %>%
   filter(region %in% c("GLO", "World")) %>% # select(variable) %>% unique %>% print(n=1000)
@@ -1009,6 +1009,7 @@ combmif %>%
       mutate(model = ifelse(model == "AR6","Density effect", "Density + Budget effects")) %>%
       left_join(rename(xmif, value = cbudget))
     ) -> dum#%>%
+dum %>% write.csv("summary_tbudget_1p7K50_dvgm.csv", row.names = F)    
 dum %>%    
   mutate(variable = str_replace(variable, " in 20", "\n20")) %>%
   mutate(variable = str_replace(variable, " to 1.7C", "\nto 1.7°C")) %>%
@@ -1020,7 +1021,10 @@ dum %>%
   # coord_flip() +
   # facet_wrap(~ variable + model, scales = "free", ncol = 2) +
   # facet_grid(variable ~ model, scales = "free") +
-  facet_grid(variable ~ fct_relevel(model, "Density effect", "Density + Budget effects"), scales = "free") +
+  facet_grid(
+    variable ~ fct_relevel(model, "Density effect", "Density + Budget effects"), 
+    scales = "free_y"
+    ) +
   scale_color_manual(values = modelcolors) +
   theme_bw() +
   labs(
@@ -1034,6 +1038,22 @@ ggsave("summary_tbudget_1p7K50_dvgm.png", width = 8, height = 10)
 dum %>% 
   group_by(variable, model) %>%
   summarise(min = min(value), max = max(value), dif = max-min,mean = min(value), dpc = 100*dif/mean)
+
+bigmif %>%
+  filter(
+    region %in% c("GLO", "World"),
+    variable %in% c(
+      "Resources|Land Cover|+|Forest"
+    )
+  ) %>%
+  filter(str_detect(policy, "PkBudg")) %>%
+  filter(cbudget == 560) %>%
+  mutate(value = value - value[match(2020, period)]) %>%
+  filter(period == 2050) %>%
+  summarize(value = mean(value, na.rm = T)) 
+
+  # mutate(value = value - )
+# "Resources|Land Cover|+|Forest in 2050"
 
 # Summary plots NZ =================================
 xvarname <- "Emi|CO2|+|Land-Use Change|Cum"
@@ -2098,7 +2118,8 @@ bigmif %>%
   scale_color_manual(values = modelcolors) +
   scale_x_continuous(breaks = seq(600, 720, by = 20))
 
-# CDR breakdown for selected budgets
+# CDR breakdown for selected budgets =========================================
+
 tot <- "Emi|CO2|CDR"
 items <- c(
   "Emi|CO2|CDR|+|BECCS",
@@ -2109,13 +2130,64 @@ items <- c(
   "Emi|CO2|CDR|+|OAE",
   "Emi|CO2|CDR|+|Synthetic Fuels CCS"
 )
-bigmif %>%
+plt <- bigmif %>%
   filter(variable %in% c(tot, items)) %>%
   filter(cbudget == usebudget) %>%
   filter(region == "GLO") %>%
   createAreaAndBarPlots(items, tot, mainReg = "GLO", , yearsBarPlot = c(2050, 2100), scales = "fixed")
+plt
   # showAreaAndBarPlots(items, tot, mainReg = "GLO", , yearsBarPlot = c(2050, 2100), scales = "fixed")
 ggsave(paste0("cdr_bars_",usebudget,".png"), width = 14, height = 5)
+
+tot <- "Emi|CO2|Cumulated|CDR"
+items <- c(
+  "Emi|CO2|Cumulated|CDR|BECCS",
+  "Emi|CO2|Cumulated|CDR|DACCS",
+  "Emi|CO2|Cumulated|CDR|EW",
+  "Emi|CO2|Cumulated|CDR|Land-Use Change",
+  "Emi|CO2|Cumulated|CDR|Materials",
+  "Emi|CO2|Cumulated|CDR|OAE",
+  "Emi|CO2|Cumulated|CDR|Synthetic Fuels CCS"
+)
+
+usemif <- bigmif %>%
+  filter(variable %in% c(tot, items)) %>%
+  filter(cbudget == usebudget) %>%
+  filter(region == "GLO") %>%
+  group_by(across(!c(period, value))) %>% # rebase the cumulative series to 2020
+  arrange(period, .by_group = TRUE) %>%
+  mutate(value = value - value[match(2020, period)]) %>%
+  ungroup()
+
+# plt <- bigmif %>%
+#   filter(variable %in% c(tot, items)) %>%
+#   filter(cbudget == usebudget) %>%
+#   filter(region == "GLO") %>%
+#   createAreaAndBarPlots(items, tot, mainReg = "GLO", , yearsBarPlot = c(2050, 2100), scales = "fixed")
+# plt
+
+usemif %>%
+  filter(variable %in% items) %>% # components only, tot would double-count
+  filter(period %in% c(2050, 2100)) %>%
+  mutate(value = value * 1e-3 * -1) %>% # MtCO2 to GtCO2 and make positive
+  mutate(variable = str_remove(variable, fixed("Emi|CO2|Cumulated|CDR|"))) %>%
+  ggplot(aes(x = lsm, y = value, fill = variable)) +
+  geom_col() +
+  facet_wrap(~period, scales = "free_y") +
+  scale_fill_manual(values = cdrcolors) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Cumulative CDR since 2020 [GtCO2]",
+    fill = "CDR type"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold", size = rel(1.0))
+  )
+ggsave("cdr_stacked_bars.png", width = 8, height = 5)
+
 
 # ===================================================================
 # CDR isoline plots
@@ -2173,7 +2245,7 @@ bigmif %>%
 ggsave("cdr_isolines.png", height = 4, width = 10)
 ggsave("cdr_isolines.svg", height = 4, width = 10)
 
-# CDR isoline plots
+# CDR isoline plots, updated
 # ===================================================================
 
 useyears <- c(2050, 2100)
@@ -2191,6 +2263,10 @@ cdrdata <- bigmif %>%
   mutate(value = value * 1e-3 * -1) %>% # MtCO2 to GtCO2 and make positive
   filter(str_detect(policy, "PkBudg")) %>%
   filter(cbudget == usebudget) %>%
+  group_by(across(!c(period, value))) %>% # rebase the cumulative series to 2020
+  arrange(period, .by_group = TRUE) %>%
+  mutate(value = value - value[match(2020, period)]) %>%
+  ungroup() %>%
   mutate(variable = case_when(
     variable == xvarname ~ "xvar",
     variable == yvarname ~ "yvar",
@@ -2252,8 +2328,8 @@ cdrdata %>%
     strip.text = element_text(face = "bold", size = rel(1.0))
     )
 # scale_x_continuous(breaks = seq(600, 720, by = 20))
-ggsave("cdr_isolines_v2.png", height = 5, width = 9)
-ggsave("cdr_isolines_v2.svg", height = 5, width = 9)
+ggsave("cdr_isolines_v2.png", height = 6*0.8, width = 10*0.8)
+ggsave("cdr_isolines_v2.svg", height = 6*0.8, width = 10*0.8)
 
 
 
@@ -2496,29 +2572,8 @@ mixbigmif %>%
   facet_grid(variable ~ cbudget, scales = "free") +
   theme_bw()
 
-# ===================================================================
-# Scratch
-# ===================================================================
 
-mixbigmif %>%
-  filter(
-    (region %in% c("GLO", "World")),
-    variable %in% c(
-      "Harmonized|Emissions|CO2",
-      "Harmonized|Emissions|CO2|MAGICC AFOLU",
-      "Harmonized|Emissions|CO2|MAGICC Fossil and Industrial",
-      "Harmonized|Emissions|CO2|Cum",
-      "Price|Carbon"
-    ),
-    lsm %in% c("CABLEPOP", "LPJwsl"),
-    cbudget %in% c(900, 920, 940, 960, 980)
-  ) %>%
-  ggplot(aes(x = period, y = value, color = lsm)) +
-  geom_line() +
-  scale_color_manual(values = modelcolors) +
-  facet_grid(variable ~ cbudget, scales = "free") +
-  theme_bw()
-
+# Transition indicators ==============================================
 bigmif %>%
   filter(
     region %in% c("GLO", "World"),
@@ -2546,7 +2601,7 @@ bigmif %>%
     # variable == "FE|Transport|Electricity|Share" ~ "Electrification share of transport [%]",
     # variable == "PE|Fossil" ~ "Primary energy from fossil fuels [EJ/yr]",
     # variable == "PE|+|Coal" ~ "Primary energy from coal [EJ/yr]",
-    variable == "Emi|CO2" ~ "Total CO2 emissions [Mt/yr]",
+    variable == "Emi|CO2" ~ "Total CO2 emissions [MtCO2/yr]",
     variable == "FE|Electricity|Share" ~ "Electricity share of final energy [%]",
     TRUE ~ variable
   )) %>% #filter(period == 2070) %>% arrange(variable) %>% print(n=1000)
@@ -2563,7 +2618,32 @@ bigmif %>%
   theme(legend.position = "bottom", legend.direction = "horizontal") +
   facet_wrap(~variable, scales = "free_y")
 ggsave("transition_indicators.png", width = 10, height = 5)
-# ggsave("transition_indicators.png", width = 10, height = 7)
+ggsave("transition_indicators.svg", width = 10, height = 5)
+
+
+# ===================================================================
+# Scratch
+# ===================================================================
+
+mixbigmif %>%
+  filter(
+    (region %in% c("GLO", "World")),
+    variable %in% c(
+      "Harmonized|Emissions|CO2",
+      "Harmonized|Emissions|CO2|MAGICC AFOLU",
+      "Harmonized|Emissions|CO2|MAGICC Fossil and Industrial",
+      "Harmonized|Emissions|CO2|Cum",
+      "Price|Carbon"
+    ),
+    lsm %in% c("CABLEPOP", "LPJwsl"),
+    cbudget %in% c(900, 920, 940, 960, 980)
+  ) %>%
+  ggplot(aes(x = period, y = value, color = lsm)) +
+  geom_line() +
+  scale_color_manual(values = modelcolors) +
+  facet_grid(variable ~ cbudget, scales = "free") +
+  theme_bw()
+
 
 
 

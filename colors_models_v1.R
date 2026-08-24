@@ -27,6 +27,17 @@ modelcolors <- c(
   "LPJ-GUESS" = "#FDBF6F"
 )
 
+# CDR components, matching the mip::plotstyle colors used in the bar plots
+cdrcolors <- c(
+  "BECCS" = "#e6194B",
+  "DACCS" = "#4363d8",
+  "EW" = "#D1BCA8",
+  "Land-Use Change" = "#3cb44b",
+  "Materials" = "#f58231",
+  "OAE" = "#469990",
+  "Synthetic Fuels CCS" = "#911eb4"
+)
+
 # require(pals)
 
 # pals::cols25() %>% dput()
