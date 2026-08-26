@@ -964,6 +964,7 @@ combmif <- mixbigmif %>%
   mutate(value = case_when(
     variable == "Emi|CO2|Cumulated|Gross|Energy and Industrial Processes" ~ value * 1e-3, # MtCO2 to GtCO2
     variable == "Emi|CO2|Cumulated|CDR" ~ value * -1e-3, # MtCO2 to GtCO2
+    variable == "Airborne Fraction|Since2020|q50" ~ value * 100, # fraction to percent
     TRUE ~ value
   )) %>%
   rebase_to_period(2020, variables = c("Resources|Land Cover|+|Forest")) %>% 
@@ -976,7 +977,7 @@ combmif <- mixbigmif %>%
     # variable == "Price|Carbon in 2050" ~ "Carbon Price in 2050 [$/tCO2]",
     # variable == "Price|Carbon in 2030" ~ "Carbon Price in 2030 [$/tCO2]",
     variable == "Emi|CO2|Cumulated|CDR in 2050" ~ "Total cum. CDR\nin 2050 [$/tCO2]",
-    variable == "Airborne Fraction|Since2020|q50 in 2050" ~ "Airborne Fraction of\nemissions 2020-2050 [%]",
+    variable == "Airborne Fraction|Since2020|q50 in 2050" ~ "Airborne Fraction of\nemis. 2020-2050 [%]",
     TRUE ~ NA
   )) %>%
   filter(!is.na(variable)) %>%
@@ -993,6 +994,7 @@ combmif <- mixbigmif %>%
 #   ) -> inmif
 # combmif %>% filter(variable == "Airborne Fraction since 2020 [%]") %>% View
 # tbudgetinfomif = tbudgetinfo
+# mixbigmif %>% select(lsm) %>% unique %>% print(n=1000)
 
 combmif %>%
   bind_rows(
@@ -1009,21 +1011,44 @@ varorder <- c(
   "Forest area change\n2020-2050 [Mha]",
   "Total cum. CDR\nin 2050 [$/tCO2]",
   "Cum. Gross FFI CO2 emi.\nin 2050 [GtCO2]",
-  "Airborne Fraction of\nemissions 2020-2050 [%]"
+  "Airborne Fraction of\nemis. 2020-2050 [%]"
 )
+x_range <- diff(range(dum$xvar, na.rm = TRUE))
+facet_ranges <- dum %>%
+  group_by(variable, model) %>%
+  summarise(
+    min_value = min(value, na.rm = TRUE),
+    max_value = max(value, na.rm = TRUE),
+    range_value = max_value - min_value,
+    xbar = max(xvar, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    xbar = xbar + 0.05 * x_range,
+    xtext = xbar + 0.04 * x_range,
+    ymid = (min_value + max_value) / 2
+  )
+
 dum %>%
-  mutate(variable = factor(variable, levels = varorder)) %>% #View
-  # relabel the levels, which keeps the order set above
-  # mutate(variable = fct_relabel(variable, ~ str_replace(.x, " in 20", "\n20"))) %>%
-  # mutate(variable = fct_relabel(variable, ~ str_replace(.x, " to 1.7C", "\nto 1.7°C"))) %>%
-  # ggplot(aes(x = lsm, y = value, color = lsm, shape = model, group = lsm)) +
+  mutate(variable = factor(variable, levels = varorder)) %>% 
   ggplot(aes(x = xvar, y = value, color = lsm, shape = model)) +
   geom_point(size = 3) +
-  # geom_line() +
-  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  # coord_flip() +
-  # facet_wrap(~ variable + model, scales = "free", ncol = 2) +
-  # facet_grid(variable ~ model, scales = "free") +
+  geom_errorbar(
+    data = facet_ranges,
+    aes(x = xbar, ymin = min_value, ymax = max_value),
+    inherit.aes = FALSE,
+    width = 0.03 * x_range,
+    color = "black"
+  ) +
+  geom_text(
+    data = facet_ranges,
+    aes(x = xtext, y = ymid, label = sprintf("%.0f", range_value)),
+    inherit.aes = FALSE,
+    angle = -90,
+    hjust = 0.5,
+    vjust = 0.5,
+    color = "black"
+  ) +
   facet_grid(
     variable ~ fct_relevel(model, "Density effect", "Density + Budget effects"), 
     scales = "free_y"
@@ -1036,8 +1061,8 @@ dum %>%
     shape = "Climate parametrization",
     color = "C densities from DVGM:"
   )
-ggsave("summary_tbudget_1p7K50_dvgm.png", width = 8, height = 10)
-ggsave("summary_tbudget_1p7K50_dvgm.svg", width = 8, height = 10)
+ggsave("summary_tbudget_1p7K50_dvgm.png", width = 9, height = 9)
+ggsave("summary_tbudget_1p7K50_dvgm.svg", width = 9, height = 9)
 
 dum %>% 
   group_by(variable, model) %>%

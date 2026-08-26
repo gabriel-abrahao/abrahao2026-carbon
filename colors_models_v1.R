@@ -24,7 +24,8 @@ modelcolors <- c(
   "ISBACTRIP" = "#0000FF",
   "VISIT" = "#36648B",
   "YIBS" = "#00E2E5",
-  "LPJ-GUESS" = "#FDBF6F"
+  "LPJ-GUESS" = "#FDBF6F", # Shows up as "LPJGUESS" in some of the data
+  "LPJGUESS" = "#FDBF6F"
 )
 
 # CDR components, matching the mip::plotstyle colors used in the bar plots
