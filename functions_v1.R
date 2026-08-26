@@ -1,5 +1,41 @@
 require(dplyr)
 
+
+# Function to filter only selected budgets ============================
+# Apply only after variable filtering to manage memory
+filter_tbudget <- function(inmif, tbudgetinfomif) {
+  tempmif <- inmif %>%
+    left_join(tbudgetinfomif)
+
+  filtfun <- function(data, cond) {
+    cond <- enquo(cond)
+    if ("model" %in% colnames(tempmif)) {
+      filter(data, !!cond)
+    } else {
+      data
+    }
+  }
+  
+  tempmifar6 <- tempmif %>%
+    filtfun(model %in% c("AR6", "REMIND-MAgPIE")) %>%
+    mutate(model = case_when( 
+      cbudget == tbudgetar6 ~ "Density effect",
+      # cbudget == tbudgetdvgm ~ "Calibrated to DVGM",
+      TRUE ~ NA
+    )) %>% #select(model) %>% unique
+    filter(!is.na(model)) 
+  tempmifdvgm <- tempmif %>%
+    filtfun(model != "AR6") %>%
+    mutate(model = case_when(
+      # cbudget == tbudgetar6 ~ "Density effect",
+      cbudget == tbudgetdvgm ~ "Density + Budget effects",
+      TRUE ~ NA
+    )) %>% #select(model) %>% unique
+    filter(!is.na(model)) 
+  outmif <- bind_rows(tempmifar6, tempmifdvgm)
+  return(outmif)
+}
+
 # Recalculates `value` in a quitte-like data frame as the difference to a
 # reference period, for every combination of the remaining columns
 # (typically model, scenario, region, variable, unit, ...).

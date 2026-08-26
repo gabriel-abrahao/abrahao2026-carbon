@@ -828,28 +828,6 @@ mixbigmif %>%
   summarise(in_range = any(value >= ttarget)) %>%
   pivot_wider(names_from = caltype, values_from = in_range)
 
-# Function to filter only selected budgets ============================
-# Apply only after variable filtering to manage memory
-filter_tbudget <- function(inmif, tbudgetinfomif) {
-  tempmif <- inmif %>%
-    left_join(tbudgetinfomif)
-  tempmifar6 <- tempmif %>%
-    mutate(model = case_when( 
-      cbudget == tbudgetar6 ~ "Density effect",
-      # cbudget == tbudgetdvgm ~ "Calibrated to DVGM",
-      TRUE ~ NA
-    )) %>% #select(model) %>% unique
-    filter(!is.na(model)) 
-  tempmifdvgm <- tempmif %>%
-    mutate(model = case_when(
-      # cbudget == tbudgetar6 ~ "Density effect",
-      cbudget == tbudgetdvgm ~ "Density + Budget effects",
-      TRUE ~ NA
-    )) %>% #select(model) %>% unique
-    filter(!is.na(model)) 
-  outmif <- bind_rows(tempmifar6, tempmifdvgm)
-  return(outmif)
-}
 
 # TCRE-like estimates =======================================
 pktemp <- mixbigmif %>%
@@ -988,31 +966,56 @@ combmif <- mixbigmif %>%
     variable == "Emi|CO2|Cumulated|CDR" ~ value * -1e-3, # MtCO2 to GtCO2
     TRUE ~ value
   )) %>%
+  rebase_to_period(2020, variables = c("Resources|Land Cover|+|Forest")) %>% 
   mutate(variable = paste0(variable, " in ", period)) %>%
   mutate(variable = case_when(
-    variable == "Resources|Land Cover|+|Forest in 2050" ~ "Forest Area in 2050 [Mha]",
+    variable == "Resources|Land Cover|+|Forest in 2050" ~ "Forest area change\n2020-2050 [Mha]",
+    # variable == "Resources|Land Cover|+|Forest in 2050" ~ "Forest Area in 2050 [Mha]",
     # variable == "Resources|Land Cover|+|Forest in 2100" ~ "Forest Area in 2100 [Mha]",
-    variable == "Emi|CO2|Cumulated|Gross|Energy and Industrial Processes in 2050" ~ "Cum. Gross FFI CO2 emi. in 2050 [GtCO2]",
-    variable == "Price|Carbon in 2050" ~ "Carbon Price in 2050 [$/tCO2]",
+    variable == "Emi|CO2|Cumulated|Gross|Energy and Industrial Processes in 2050" ~ "Cum. Gross FFI CO2 emi.\nin 2050 [GtCO2]",
+    # variable == "Price|Carbon in 2050" ~ "Carbon Price in 2050 [$/tCO2]",
     # variable == "Price|Carbon in 2030" ~ "Carbon Price in 2030 [$/tCO2]",
-    variable == "Emi|CO2|Cumulated|CDR in 2050" ~ "Total cum. CDR in 2050 [$/tCO2]",
+    variable == "Emi|CO2|Cumulated|CDR in 2050" ~ "Total cum. CDR\nin 2050 [$/tCO2]",
+    variable == "Airborne Fraction|Since2020|q50 in 2050" ~ "Airborne Fraction of\nemissions 2020-2050 [%]",
     TRUE ~ NA
   )) %>%
   filter(!is.na(variable)) %>%
+  mutate(variable = fct_relabel(variable, ~ str_replace(.x, " in 20", "\n20"))) %>% # Add line breaks for years in variable names
+  mutate(variable = fct_relabel(variable, ~ str_replace(.x, " to 1.7C", "\nto 1.7°C"))) %>%
+  # rebase_to_period(2020, variables = c("Forest area change 2020-2050 [Mha]"), only.new = TRUE) %>% View
   filter_tbudget(tbudgetinfo) %>%
   left_join(tbudgetinfo) #%>% #View
 
-# bind_rows(combmifar6, combmifdvgm)%>% #View#select(lsm) %>% unique
+# # bind_rows(combmifar6, combmifdvgm)%>% #View#select(lsm) %>% unique
+# mixbigmif %>% filter(
+#   variable == "Airborne Fraction|Since2020|q50",
+#   period == 2050
+#   ) -> inmif
+# combmif %>% filter(variable == "Airborne Fraction since 2020 [%]") %>% View
+# tbudgetinfomif = tbudgetinfo
+
 combmif %>%
   bind_rows(
     tbudgetmif %>%
       mutate(model = ifelse(model == "AR6","Density effect", "Density + Budget effects")) %>%
+      mutate(variable = fct_relabel(variable, ~ str_replace(.x, " to 1.7C", "\nto 1.7°C"))) %>%
       left_join(rename(xmif, value = cbudget))
     ) -> dum#%>%
+dum %>% select(variable) %>% unique %>% print(n=1000)
 dum %>% write.csv("summary_tbudget_1p7K50_dvgm.csv", row.names = F)    
-dum %>%    
-  mutate(variable = str_replace(variable, " in 20", "\n20")) %>%
-  mutate(variable = str_replace(variable, " to 1.7C", "\nto 1.7°C")) %>%
+# facet row order, given as the raw variable names in dum
+varorder <- c(
+  "Carbon budget\nto 1.7°C 50th perc.",
+  "Forest area change\n2020-2050 [Mha]",
+  "Total cum. CDR\nin 2050 [$/tCO2]",
+  "Cum. Gross FFI CO2 emi.\nin 2050 [GtCO2]",
+  "Airborne Fraction of\nemissions 2020-2050 [%]"
+)
+dum %>%
+  mutate(variable = factor(variable, levels = varorder)) %>% #View
+  # relabel the levels, which keeps the order set above
+  # mutate(variable = fct_relabel(variable, ~ str_replace(.x, " in 20", "\n20"))) %>%
+  # mutate(variable = fct_relabel(variable, ~ str_replace(.x, " to 1.7C", "\nto 1.7°C"))) %>%
   # ggplot(aes(x = lsm, y = value, color = lsm, shape = model, group = lsm)) +
   ggplot(aes(x = xvar, y = value, color = lsm, shape = model)) +
   geom_point(size = 3) +
@@ -1034,6 +1037,7 @@ dum %>%
     color = "C densities from DVGM:"
   )
 ggsave("summary_tbudget_1p7K50_dvgm.png", width = 8, height = 10)
+ggsave("summary_tbudget_1p7K50_dvgm.svg", width = 8, height = 10)
 
 dum %>% 
   group_by(variable, model) %>%
@@ -1578,6 +1582,7 @@ combmif %>%
     color = "C densities from DVGM:"
   )
 ggsave("summary_tbudget_stocks_1p7K50_dvgm.png", width = 8, height = 10)
+ggsave("summary_tbudget_stocks_1p7K50_dvgm.svg", width = 8, height = 10)
 
 # Prices vs. budget =============================================================
 combmif %>%
@@ -2604,7 +2609,7 @@ bigmif %>%
     variable == "Emi|CO2" ~ "Total CO2 emissions [MtCO2/yr]",
     variable == "FE|Electricity|Share" ~ "Electricity share of final energy [%]",
     TRUE ~ variable
-  )) %>% #filter(period == 2070) %>% arrange(variable) %>% print(n=1000)
+  )) %>% #filter(period == 2040) %>% arrange(variable) %>% print(n=1000)
   filter(between(period, 2025, 2070)) %>%
   ggplot(aes(x = period, y = value, color = lsm)) +
   geom_line() +
