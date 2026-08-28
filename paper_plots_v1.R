@@ -954,6 +954,13 @@ xmif <- bigmif %>%
 #   View
 
 # C_ESM2025v05-LPJwsl-SSP2-PkBudg540-rem-5
+varorder <- c(
+  "Carbon budget\nto 1.7°C 50th perc.",
+  "Forest area change\n2020-2050 [Mha]",
+  "Total cum. CDR\nin 2050 [$/tCO2]",
+  "Cum. Gross FFI CO2 emi.\nin 2050 [GtCO2]",
+  "Airborne Fraction of\nemis. 2020-2050 [%]"
+)
 
 combmif <- mixbigmif %>%
   filter(
@@ -996,23 +1003,19 @@ combmif <- mixbigmif %>%
 # tbudgetinfomif = tbudgetinfo
 # mixbigmif %>% select(lsm) %>% unique %>% print(n=1000)
 
-combmif %>%
+dum <- combmif %>%
   bind_rows(
     tbudgetmif %>%
       mutate(model = ifelse(model == "AR6","Density effect", "Density + Budget effects")) %>%
       mutate(variable = fct_relabel(variable, ~ str_replace(.x, " to 1.7C", "\nto 1.7°C"))) %>%
       left_join(rename(xmif, value = cbudget))
-    ) -> dum#%>%
+    ) %>%
+    mutate(variable = factor(variable, levels = varorder)) %>%
+    mutate(model = fct_relevel(model, "Density effect", "Density + Budget effects"))
+
 dum %>% select(variable) %>% unique %>% print(n=1000)
 dum %>% write.csv("summary_tbudget_1p7K50_dvgm.csv", row.names = F)    
 # facet row order, given as the raw variable names in dum
-varorder <- c(
-  "Carbon budget\nto 1.7°C 50th perc.",
-  "Forest area change\n2020-2050 [Mha]",
-  "Total cum. CDR\nin 2050 [$/tCO2]",
-  "Cum. Gross FFI CO2 emi.\nin 2050 [GtCO2]",
-  "Airborne Fraction of\nemis. 2020-2050 [%]"
-)
 x_range <- diff(range(dum$xvar, na.rm = TRUE))
 facet_ranges <- dum %>%
   group_by(variable, model) %>%
@@ -1027,11 +1030,10 @@ facet_ranges <- dum %>%
     xbar = xbar + 0.05 * x_range,
     xtext = xbar + 0.04 * x_range,
     ymid = (min_value + max_value) / 2,
-    panel_label = letters[rev(seq_len(n()))]
+    panel_label = letters[(seq_len(n()))]
   )
 
 dum %>%
-  mutate(variable = factor(variable, levels = varorder)) %>% 
   ggplot(aes(x = xvar, y = value, color = lsm, shape = model)) +
   geom_point(size = 3) +
   geom_text(
@@ -1059,7 +1061,7 @@ dum %>%
     color = "black"
   ) +
   facet_grid(
-    variable ~ fct_relevel(model, "Density effect", "Density + Budget effects"), 
+    variable ~ model, 
     scales = "free_y"
     ) +
   scale_color_manual(values = modelcolors) +
@@ -1513,11 +1515,14 @@ plotmif <- histfluxmif %>%
 reg <- lm(nbp ~ cVeg, data = plotmif) 
 summary(reg)
 reg_coef <- coef(reg)
-reg_pvalue <- summary(reg)$coefficients["cVeg", "Pr(>|t|)"]
+reg_summary <- summary(reg)
+reg_pvalue <- reg_summary$coefficients["cVeg", "Pr(>|t|)"]
+reg_r_squared <- reg_summary$r.squared
 reg_label <- paste0(
   "y = ", formatC(reg_coef["(Intercept)"], format = "e", digits = 2),
   " + ", formatC(reg_coef["cVeg"], format = "e", digits = 2), " * x\n",
-  "p-value = ", sprintf("%.2f", reg_pvalue)
+  "p-value = ", sprintf("%.2f", reg_pvalue),
+  ", R\u00b2 = ", sprintf("%.2f", reg_r_squared)
 )
 
 plotmif %>%
