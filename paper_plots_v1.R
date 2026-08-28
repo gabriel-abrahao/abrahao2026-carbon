@@ -1493,7 +1493,7 @@ compdata %>%
   scale_color_manual(values = modelcolors) +
   labs(
     x = "Global area-weighted average primary forest C potential [tCO2/ha]",
-    y = "Global atmosphere-to-land CO2 flux, average 1960-2020 [GtCO2/yr]",
+    y = "Global atmosphere-to-land CO2 flux\naverage 1960-2020 [GtCO2/yr]",
     color = "DGVM"
   ) +
   theme_classic()
@@ -1504,21 +1504,35 @@ lm(value ~ vegc, data = compdata) %>% summary
 # cor(compdata$value,compdata$vegc)
 
 # Stocks (MAGICC calib) vs. Flows ==========================================
-histfluxmif %>%
+
+
+plotmif <- histfluxmif %>%
   filter(variable %in% c("nbp","cVeg")) %>%
   select(-unit) %>%
-  pivot_wider(names_from = "variable", values_from = "value") %>%
+  pivot_wider(names_from = "variable", values_from = "value") 
+reg <- lm(nbp ~ cVeg, data = plotmif) 
+summary(reg)
+reg_coef <- coef(reg)
+reg_pvalue <- summary(reg)$coefficients["cVeg", "Pr(>|t|)"]
+reg_label <- paste0(
+  "y = ", formatC(reg_coef["(Intercept)"], format = "e", digits = 2),
+  " + ", formatC(reg_coef["cVeg"], format = "e", digits = 2), " * x\n",
+  "p-value = ", sprintf("%.2f", reg_pvalue)
+)
+
+plotmif %>%
   ggplot(aes(x = cVeg, y = nbp)) +
   geom_point(aes(color = lsm)) +
   geom_smooth(aes(group = NULL),method = "lm") +
+  annotate("text", x = -Inf, y = Inf, label = reg_label, hjust = -0.05, vjust = 1.1) +
   scale_color_manual(values = modelcolors) +
   labs(
-    x = "Global vegetation carbon stock, average 1960-2020 [GtCO2]",
-    y = "Global atmosphere-to-land CO2 flux, average 1960-2020 [GtCO2/yr]",
+    x = "Global vegetation carbon stock\naverage 1960-2020 [GtCO2]",
+    y = "Global atmosphere-to-land CO2 flux\naverage 1960-2020 [GtCO2/yr]",
     color = "DGVM"
   ) +
   theme_classic()
-ggsave("input_stock_vs_flow_magicc.png", width = 6, height = 5)
+ggsave("input_stock_vs_flow_magicc.png", width = 7, height = 5)
 
 
 
