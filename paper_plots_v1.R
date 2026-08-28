@@ -1026,13 +1026,22 @@ facet_ranges <- dum %>%
   mutate(
     xbar = xbar + 0.05 * x_range,
     xtext = xbar + 0.04 * x_range,
-    ymid = (min_value + max_value) / 2
+    ymid = (min_value + max_value) / 2,
+    panel_label = letters[rev(seq_len(n()))]
   )
 
 dum %>%
   mutate(variable = factor(variable, levels = varorder)) %>% 
   ggplot(aes(x = xvar, y = value, color = lsm, shape = model)) +
   geom_point(size = 3) +
+  geom_text(
+    data = facet_ranges,
+    aes(x = -Inf, y = Inf, label = panel_label),
+    inherit.aes = FALSE,
+    hjust = -0.5,
+    vjust = 1.5,
+    color = "black"
+  ) +
   geom_errorbar(
     data = facet_ranges,
     aes(x = xbar, ymin = min_value, ymax = max_value),
