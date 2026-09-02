@@ -161,33 +161,37 @@ ggsave(paste0("tempandaf_Xlucemi", "_", usebudget, "_", "bothyears", ".png"), wi
 # DVGM vs. ensemble uncertainty
 mixbigmif %>%
   filter(variable %in% c(
+    "Surface Air Temperature Change|q33",
     "Surface Air Temperature Change|q50",
     "Surface Air Temperature Change|q67",
     "Surface Air Temperature Change|q90",
     "Surface Air Temperature Change|q10"
   )) %>%
   filter(cbudget == usebudget, period %in% c(2050,2100)) %>%
-  mutate(model = ifelse(model != "AR6", "Calibrated to DVGM", "AR6 Ensemble")) %>%
+  mutate(model = ifelse(model != "AR6", "AR6 ensemble +\nLand C cycle\ncalibrated to DVGM", "Pure AR6\nensemble")) %>%
+  mutate(model = factor(model, levels = c("Pure AR6\nensemble", "AR6 ensemble +\nLand C cycle\ncalibrated to DVGM"))) %>%
   mutate(variable = str_remove(variable, "Surface Air Temperature Change\\|")) %>%
   # group_by(variable,model,period) %>%
   # summarise(min = min(value), max = max(value), mean = mean(value))
-  ggplot(aes(x = model, y = value, color = variable)) +
+  ggplot(aes(x = model, y = value, fill = variable)) +
   # geom_jitter(size = 0.5) +
   geom_boxplot() +
   facet_wrap(~period, scales = "free") +
     labs(
     x = "",
     y = paste0("GSAT [K]"),
-    color = "Quantile from 600\nclimate parametrizations:"
+    fill = "Quantile from 600\nclimate parametrizations:"
   ) +
   theme_bw() +
   theme(
     legend.position = "bottom", 
     legend.direction = "horizontal", 
     legend.title.position = "top",
+    legend.title = element_text(hjust = 0.5),
     legend.justification = "center"
     ) 
 ggsave(paste0("tempvsquantiles", "_", usebudget, "_", "bothyears", ".png"), width = 6, height = 5)
+ggsave(paste0("tempvsquantiles", "_", usebudget, "_", "bothyears", ".svg"), width = 6, height = 5)
 
 
 # Diff temperature between calibrations vs. LUC emissions
@@ -935,7 +939,21 @@ bigmif %>%
   )
 ggsave("summary_basic_tbudget2K67.png", width = 10, height = 8)
 
-# Summary (main) with same variables as previous section ==========================
+
+bigmif %>%
+  filter(
+    variable %in% c(
+      "Emi|CO2|+|Land-Use Change|Cum"
+    ),
+    region %in% c("GLO", "World")
+  ) %>%
+  filter(period == 2100) %>%
+  filter(cbudget == musebudget) %>%
+  group_by(variable, model) %>%
+  summarise(min = min(value), max = max(value), dif = max-min,mean = min(value), dpc = 100*dif/mean)
+
+
+# MAIN Figure 2: Summary (main) with same variables as previous section ==========================
 xvarname <- "Emi|CO2|+|Land-Use Change|Cum"
 xmif <- bigmif %>%
   filter(region %in% c("GLO", "World")) %>% # select(variable) %>% unique %>% print(n=1000)
@@ -955,7 +973,7 @@ xmif <- bigmif %>%
 
 # C_ESM2025v05-LPJwsl-SSP2-PkBudg540-rem-5
 varorder <- c(
-  "Carbon budget\nto 1.7°C 50th perc.",
+  "Carbon budget\nto 1.7°C 50th perc.[GtCO2]",
   "Forest area change\n2020-2050 [Mha]",
   "Total cum. CDR\nin 2050 [$/tCO2]",
   "Cum. Gross FFI CO2 emi.\nin 2050 [GtCO2]",
@@ -1062,10 +1080,16 @@ dum %>%
   ) +
   facet_grid(
     variable ~ model, 
-    scales = "free_y"
+    scales = "free_y",
+    switch = "y"
     ) +
   scale_color_manual(values = modelcolors) +
   theme_bw() +
+  theme(
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    strip.text.y.left = element_text(angle = 90)
+  ) +
   labs(
     x = "Cost-effective cum. LUC emissions since 2020 [GtCO2]",
     y = "",
@@ -1078,6 +1102,74 @@ ggsave("summary_tbudget_1p7K50_dvgm.svg", width = 9, height = 9)
 dum %>% 
   group_by(variable, model) %>%
   summarise(min = min(value), max = max(value), dif = max-min,mean = min(value), dpc = 100*dif/mean)
+
+dum %>% 
+  filter(variable == "Forest area change\n2020-2050 [Mha]") %>%
+  group_by(variable, model) %>%
+  summarise(min = min(xvar), max = max(xvar), dif = max-min,mean = min(xvar), dpc = 100*dif/mean)
+
+dum %>%
+  filter(variable == "Forest area change\n2020-2050 [Mha]") %>%
+  mutate(xvar = -xvar) %>%
+  mutate(value = value/xvar) %>%
+  ggplot(aes(x = xvar, y = value, color = lsm, shape = model)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = lsm)) +
+  scale_color_manual(values = modelcolors) +
+  labs(
+    x = "Cum. LUC CDR since 2020 [GtCO2]",
+    y = "Cum. LUC CDR per forest area change 2020-2050 [1000tCO2/ha]",
+    shape = "Climate parametrization",
+    color = "C densities from DVGM:"
+    ) +
+    theme_bw()
+ggsave("luc_per_forest.png", width = 8, height = 6)
+
+# Emissions over time =======================================================
+mixbigmif %>%
+  filter(
+    # cbudget == usebudget,
+    region %in% c("GLO", "World")
+    # lsm == model | model == "AR6"
+  ) %>%
+  filter(variable %in% c(
+    "Emi|CO2|Gross|Energy and Industrial Processes",
+    "Emi|CO2|CDR",
+    "Emi|CO2"
+  )) %>%
+  mutate(value = value * 1e-3, unit = "GtCO2/yr") %>%
+  filter_tbudget(tbudgetinfo) %>%
+  left_join(tbudgetinfo) %>% #View
+  # mutate(model = ifelse(model == "REMIND-MAgPIE", "Density effect", "Density + Budget effects")) %>%
+  # select(model) %>% unique
+  mutate(model = fct_relevel(model, "Density effect", "Density + Budget effects")) %>%
+  mutate(variable = case_when(
+    variable == "Emi|CO2|Gross|Energy and Industrial Processes" ~ "Gross FFI CO2 emissions\n[GtCO2/yr]",
+    variable == "Emi|CO2|CDR" ~ "CDR\n[GtCO2/yr]",
+    variable == "Emi|CO2" ~ "Net CO2 emissions\n[GtCO2/yr]",
+    TRUE ~ variable
+  )) %>%
+  ggplot(aes(x = period, y = value, color = lsm, shape = model)) +
+  geom_path() +
+  geom_vline(xintercept = 2050, linetype = "dashed") +
+  facet_grid(variable ~ model, scales = "free_y", switch = "y") +
+  scale_color_manual(values = modelcolors) +
+  scale_x_continuous(limits = c(2020, 2100)) +
+  theme_bw() +
+  theme(
+    strip.placement = "outside",
+    strip.background.y = element_blank(),
+    strip.text.y.left = element_text(angle = 90)
+  ) +
+  labs(
+    x = "",
+    y = "",
+    color = "DVGM",
+    shape = ""
+  )
+ggsave("emissions_time.png", width = 8, height = 8)
+
+
 
 bigmif %>%
   filter(
@@ -1488,18 +1580,38 @@ compdata <- histfluxmif %>%
   filter(variable == "nbp")  %>%
   ungroup
 
-compdata %>%
+reg <- lm(value ~ vegc, data = compdata) 
+summary(reg)
+reg_coef <- coef(reg)
+reg_summary <- summary(reg)
+reg_pvalue <- reg_summary$coefficients["vegc", "Pr(>|t|)"]
+reg_r_squared <- reg_summary$r.squared
+reg_label <- paste0(
+  "y = ", formatC(reg_coef["(Intercept)"], format = "e", digits = 2),
+  " + ", formatC(reg_coef["cVeg"], format = "e", digits = 2), " * x\n",
+  "p-value = ", sprintf("%.2f", reg_pvalue),
+  ", R\u00b2 = ", sprintf("%.2f", reg_r_squared)
+)
+
+p1 <- compdata %>%
   ggplot(aes(x = vegc, y = value)) +
   geom_point(aes(color = lsm)) +
   geom_smooth(aes(group = NULL),method = "lm") +
+  annotate("text", x = -Inf, y = Inf, label = reg_label, hjust = -0.05, vjust = 1.1) +
   scale_color_manual(values = modelcolors) +
   labs(
-    x = "Global area-weighted average primary forest C potential [tCO2/ha]",
+    x = "Area-weighted average primary forest\nC density potential [tCO2/ha]",
     y = "Global atmosphere-to-land CO2 flux\naverage 1960-2020 [GtCO2/yr]",
     color = "DGVM"
   ) +
-  theme_classic()
-ggsave("input_stock_vs_flow_magpie.png", width = 6, height = 5)
+  ylim(3,13) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal"
+  ) 
+print(p1)
+ggsave("input_stock_vs_flow_magpie.png", width = 7, height = 5)
 
 
 lm(value ~ vegc, data = compdata) %>% summary
@@ -1525,7 +1637,7 @@ reg_label <- paste0(
   ", R\u00b2 = ", sprintf("%.2f", reg_r_squared)
 )
 
-plotmif %>%
+p2 <- plotmif %>%
   ggplot(aes(x = cVeg, y = nbp)) +
   geom_point(aes(color = lsm)) +
   geom_smooth(aes(group = NULL),method = "lm") +
@@ -1536,9 +1648,26 @@ plotmif %>%
     y = "Global atmosphere-to-land CO2 flux\naverage 1960-2020 [GtCO2/yr]",
     color = "DGVM"
   ) +
-  theme_classic()
+  ylim(3,13) +
+  theme_classic() +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal"
+  ) 
+print(p2)
 ggsave("input_stock_vs_flow_magicc.png", width = 7, height = 5)
 
+
+
+leg <- get_legend(p1)
+p1 <- p1 + theme(legend.position = "none")
+p2 <- p2 + theme(legend.position = "none")
+
+# pcomb <- cowplot::plot_grid(p1,p2)
+pcomb <- cowplot::plot_grid(p1,NULL,p2, ncol = 3, rel_widths = c(1,0.05,1)) # Add a bit of space between plots
+cowplot::plot_grid(pcomb, leg, ncol = 1, rel_heights = c(1,0.2)) + 
+  theme(plot.background = element_rect(fill = "white", color = NA))
+ggsave("correlation_inputs.png", width = 10, height = 5)
 
 
 # LUC with input stocks ==========================================
@@ -1563,20 +1692,23 @@ allglostocks %>%
   drop_na() %>% 
   pivot_longer(cols = c("totc", "vegc")) %>%
   mutate(name = replace_when(name,
-                             name == "totc" ~ "Total land C potential",
-                             name == "vegc" ~ "Vegetation C potential"
+                             name == "totc" ~ "Land + Litter + Soil",
+                             name == "vegc" ~ "Vegetation"
                              )) %>%
-  mutate(value = value*3.66) %>%
+  mutate(value = value*3.66) %>% # tC/ha to tCO2/ha
   ggplot(aes(x = value, y = xvar, color = lsm)) +
   geom_point() +
   labs(
-    x = "Global area-weighted average C potential [tCO2/ha]",
+    x = "Global area-weighted average C potential\nof vegetation pool or total land pool [tCO2/ha]",
     y = "Cost-effective cum. LUC emissions 2020-2050 [GtCO2]",
     color = "DGVM"
       ) +
   scale_color_manual(values = modelcolors) + 
-  theme_classic() +
-  facet_wrap(~model+name, scales = "free")
+  theme_bw() +
+  facet_wrap(~name+model, scales = "free")
+ggsave("density_vs_luc.png", width = 8, height = 6)
+ggsave("density_vs_luc.svg", width = 8, height = 6)
+
 
 # Summary with input stocks ==========================================
 
