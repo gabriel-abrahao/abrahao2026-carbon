@@ -10,8 +10,8 @@
 read_filtmif <- function(mifpath) {
   inmag <- read.report(mifpath)
   scen <- names(inmag)
-  frem <- inmag[[1]]$REMIND[, , extractvarsrem]
-  fmag <- inmag[[1]]$MAgPIE[, , extractvarsmag]
+  frem <- inmag[[1]]$REMIND[, , extractvarsrem[extractvarsrem %in% getNames(inmag[[1]]$REMIND)]]
+  fmag <- inmag[[1]]$MAgPIE[, , extractvarsmag[extractvarsmag %in% getNames(inmag[[1]]$MAgPIE)]]
   fmif <- rbind(as.quitte(frem), as.quitte(fmag)) %>%
     mutate(scenario = scen, model = "REMIND-MAgPIE")
   return(fmif)
