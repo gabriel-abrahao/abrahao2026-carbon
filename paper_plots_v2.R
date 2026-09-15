@@ -61,104 +61,7 @@ source("preprocess_v1.R")
 usebudget <- musebudget
 useyear <- 2050
 
-# Original temperature comparison vs. LUC emissions
-tmpclim <- mixbigmif %>%
-  filter(variable == "Surface Air Temperature Change|q50") %>%
-  filter(lsm == model | model == "AR6") %>%
-  filter(cbudget == usebudget, period %in% c(2050,2100)) %>%
-  # filter(cbudget == usebudget, period == useyear) %>%
-  mutate(model = ifelse(model != "AR6", "Calibrated_to_DVGM", model))
-
-tmpmit <- mixbigmif %>%
-  filter(
-    region %in% c("GLO", "World"),
-    variable == "Emi|CO2|+|Land-Use Change|Cum"
-  ) %>%
-  mutate(value = value * 1e-3) %>%
-  filter(cbudget == usebudget, period %in% c(2050,2100)) %>%
-  # filter(cbudget == usebudget, period == useyear) %>%
-  # select(scenario, lsm, value) %>%
-  select(scenario, lsm, value, period) %>%
-  rename(valuemit = value)
-
-tmpclim %>%
-  # select(scenario, model, lsm, value) %>%
-  select(scenario, model, lsm, value,period) %>%
-  left_join(tmpmit) %>%
-  ggplot(aes(
-    x = valuemit, y = value,
-    group = lsm,
-    color = lsm, shape = model
-  )) +
-  geom_point(size = 3) +
-  geom_line() +
-  # geom_smooth(se = F, method = "loess") +
-  theme_bw() +
-  facet_wrap(~period) +
-  scale_color_manual(values = modelcolors) +
-  labs(
-    x = paste0("Cumulative LUC emissions 2020-", useyear, " [GtCO2]"),
-    y = paste0("GSAT ", useyear, " 50th perc. [K]"),
-    shape = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  )
-ggsave(paste0("temp_Xlucemi", "_", usebudget, "_", useyear, ".png"))
-
-
-# Original temperature comparison vs. LUC emissions + Airborne fraction
-tmpclim <- mixbigmif %>%
-  filter(variable %in% c(
-    "Surface Air Temperature Change|q67",
-    "Airborne Fraction|Since2020|q67"
-
-  )) %>%
-  filter(lsm == model | model == "AR6") %>%
-  filter(cbudget == usebudget, period %in% c(2050,2100)) %>%
-  # filter(cbudget == usebudget, period == useyear) %>%
-  mutate(model = ifelse(model != "AR6", "Calibrated to DVGM", "AR6 Ensemble"))
-
-tmpmit <- mixbigmif %>%
-  filter(
-    region %in% c("GLO", "World"),
-    variable == "Emi|CO2|+|Land-Use Change|Cum"
-  ) %>%
-  mutate(value = value * 1e-3) %>%
-  filter(cbudget == usebudget, period %in% c(2050,2100)) %>%
-  # filter(cbudget == usebudget, period == useyear) %>%
-  select(scenario, lsm, value, period) %>%
-  rename(valuemit = value)
-
-tmpclim %>%
-  select(scenario, variable, model, lsm, value, period) %>%
-  # select(scenario, variable, model, lsm, value) %>%
-  left_join(tmpmit) %>%
-  mutate(variable = case_when(
-    variable == "Surface Air Temperature Change|q67" ~ "GSAT",
-    variable == "Airborne Fraction|Since2020|q67" ~ "Airborne Fraction of emissions since 2020",
-    TRUE ~ variable
-  )) %>%
-  # filter(model == "Calibrated to DVGM", period == 2050)
-  ggplot(aes(
-    x = valuemit, y = value,
-    group = lsm,
-    color = lsm, shape = model
-  )) +
-  geom_point(size = 3) +
-  geom_line() +
-  # geom_smooth(se = F, method = "loess") +
-  theme_bw() +
-  facet_wrap(~variable+period, scales = "free") +
-  scale_color_manual(values = modelcolors) +
-  labs(
-    x = paste0("Cumulative LUC emissions since 2020 [GtCO2]"),
-    y = paste0("GSAT [K] or Airborne Fraction (67th perc.)"),
-    shape = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  )
-# ggsave(paste0("tempandaf_Xlucemi", "_", usebudget, "_", useyear, ".png"), width = 10, height = 4)
-ggsave(paste0("tempandaf_Xlucemi", "_", usebudget, "_", "bothyears", ".png"), width = 9, height = 7)
-
-# DVGM vs. ensemble uncertainty
+# Figure B5: DVGM vs. ensemble uncertainty ===========================
 mixbigmif %>%
   filter(variable %in% c(
     "Surface Air Temperature Change|q33",
@@ -176,6 +79,13 @@ mixbigmif %>%
   ggplot(aes(x = model, y = value, fill = variable)) +
   # geom_jitter(size = 0.5) +
   geom_boxplot() +
+  geom_text(
+    data = tibble(period = c(2050, 2100), label = c("a", "b")),
+    aes(x = -Inf, y = Inf, label = label),
+    inherit.aes = FALSE,
+    hjust = -0.5,
+    vjust = 1.5
+  ) +
   facet_wrap(~period, scales = "free") +
     labs(
     x = "",
@@ -190,190 +100,8 @@ mixbigmif %>%
     legend.title = element_text(hjust = 0.5),
     legend.justification = "center"
     ) 
-ggsave(paste0("tempvsquantiles", "_", usebudget, "_", "bothyears", ".png"), width = 6, height = 5)
-ggsave(paste0("tempvsquantiles", "_", usebudget, "_", "bothyears", ".svg"), width = 6, height = 5)
-
-
-# Diff temperature between calibrations vs. LUC emissions
-# Should be (Calibrated to DVGM - AR6). Then we get positive differences
-# when the calibrated model is warmer than AR6 average.
-# The hypothesis is that LOWER (more negative) LUC emissions are
-# correlated with LOWER (more negative) temperature differences.
-tmpclim <- mixbigmif %>%
-  filter(variable == "Surface Air Temperature Change|q67") %>%
-  filter(lsm == model | model == "AR6") %>%
-  # filter(cbudget == usebudget, period == useyear) %>%
-  mutate(model = ifelse(model != "AR6", "Calibrated_to_DVGM", model)) %>%
-  # select(scenario,model,lsm,value) %>%
-  select(scenario, model, cbudget, period, lsm, value) %>%
-  pivot_wider(names_from = model, values_from = value) %>%
-  mutate(value = `Calibrated_to_DVGM` - `AR6`) %>%
-  select(-`Calibrated_to_DVGM`, -`AR6`)
-
-tmpmit <- mixbigmif %>%
-  filter(
-    region %in% c("World", "GLO"),
-    variable == "Emi|CO2|+|Land-Use Change|Cum"
-  ) %>%
-  mutate(value = value * 1e-3) %>%
-  # filter(cbudget == usebudget, period == useyear) %>%
-  # select(scenario,lsm,value) %>%
-  select(scenario, model, cbudget, period, lsm, value) %>%
-  rename(valuemit = value)
-
-# Single plot for single budget and year
-tmpclim %>%
-  filter(period %in% c(2050,2100)) %>%
-  filter(cbudget %in% c(usebudget)) %>%
-  left_join(tmpmit) %>%
-  ggplot(aes(x = valuemit, y = value, color = lsm)) +
-  geom_point(size = 3) +
-  # geom_smooth(se = F, method = lm, color = "grey30") +
-  # geom_line() +
-  # geom_hline(yintercept = 0) +
-  # geom_smooth(se = F, method = "loess") +
-  theme_bw() +
-  labs(
-    x = paste0("Cost-effective cum. LUC emissions since 2020 [GtCO2]"),
-    y = paste0("Diff. (Calibrated to DVGM - AR6 Ensemble)\nGSAT ", useyear, " 67th perc. [K]"),
-    shape = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  ) +
-  scale_color_manual(values = modelcolors) +
-  facet_wrap(~ period + cbudget, ncol = 2, scales = "free_x")
-
-ggsave(paste0("temp_diff_Xlucemi", "_", usebudget, "_years.png"), height = 4, width = 8)
-
-
-# Facet
-tmpclim %>%
-  filter(period %in% c(2050, 2100)) %>%
-  filter(cbudget %in% c(620, 720)) %>%
-  left_join(tmpmit) %>%
-  ggplot(aes(x = valuemit, y = value, color = lsm)) +
-  geom_point(size = 3) +
-  # geom_line() +
-  geom_hline(yintercept = 0) +
-  geom_smooth(se = F, method = "lm") +
-  theme_bw() +
-  labs(
-    x = paste0("Cumulative LUC emissions 2020-", useyear, " [GtCO2]"),
-    y = paste0("Diff. (Calibrated to DVGM - AR6 Ensemble)\nGSAT ", useyear, " 67th perc. [K]"),
-    shape = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  ) +
-  scale_color_manual(values = modelcolors) +
-  facet_wrap(~ period + cbudget)
-
-ggsave(paste0("temp_diff_Xlucemi", "_facet_", ".png"))
-
-# Just usebudget
-tmpclim %>%
-  filter(period %in% c(2050, 2100)) %>%
-  filter(cbudget %in% c(usebudget)) %>%
-  left_join(tmpmit) %>%
-  ggplot(aes(x = valuemit, y = value, color = lsm)) +
-  geom_point(size = 3) +
-  # geom_smooth(se = F, method = lm, color = "grey30") +
-  stat_smooth(method = "lm", formula = y ~ x) +
-  stat_regline_equation(
-    aes(label = paste(..eq.label.., ..adj.rr.label.., sep = "~~~~")),
-    formula = formula
-  ) +
-  geom_hline(yintercept = 0) +
-  # geom_smooth(se = F, method = "loess") +
-  theme_bw() +
-  labs(
-    x = paste0("Cost-effective cum. LUC emissions since 2020 [GtCO2]"),
-    y = paste0("Diff. (AR6 Ensemble - Calibrated to DVGM)\nGSAT ", " 67th perc. [K]"),
-    # shape = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  ) +
-  scale_color_manual(values = modelcolors) +
-  facet_wrap(~ period + cbudget, ncol = 1)
-
-ggsave(paste0("temp_diff_Xlucemi", "_", usebudget, "_years.png"), height = 7, width = 6)
-
-
-# Temp and CO2 concentrations ==============================================
-tmpclim <- mixbigmif %>%
-  filter(variable %in% c(
-    "Surface Air Temperature Change|q50",
-    "Atmospheric Concentrations|CO2|q50"
-  )) %>%
-  filter(lsm == model | model == "AR6") %>%
-  # filter(cbudget == usebudget, period == useyear) %>%
-  mutate(model = ifelse(model != "AR6", "Calibrated_to_DVGM", model)) %>%
-  # select(scenario,model,lsm,value) %>%
-  select(scenario, model, variable, cbudget, period, lsm, value) %>%
-  pivot_wider(names_from = model, values_from = value) %>%
-  mutate(value = `Calibrated_to_DVGM` - `AR6`) %>%
-  select(-`Calibrated_to_DVGM`, -`AR6`)
-
-# Just usebudget
-tmpclim %>%
-  filter(period %in% c(2050, 2100)) %>%
-  filter(cbudget %in% c(usebudget)) %>%
-  left_join(tmpmit) %>%
-  ggplot(aes(x = valuemit, y = value, color = lsm)) +
-  geom_point(size = 3) +
-  geom_smooth(se = F, method = lm, color = "grey30") +
-  # geom_line() +
-  geom_hline(yintercept = 0, color = "grey50", lty = "dashed") +
-  # geom_smooth(se = F, method = "loess") +
-  theme_bw() +
-  labs(
-    x = paste0("Cost-effective cum. LUC emissions since 2020 [GtCO2]"),
-    y = paste0("Diff. (AR6 Ensemble - Calibrated to DVGM)\n50th perc. GSAT [K] or Atmospheric [CO2] [ppm]"),
-    shape = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  ) +
-  scale_color_manual(values = modelcolors) +
-  facet_wrap(~ variable + period, ncol = 2, scales = "free_y")
-
-ggsave(paste0("temp_diff_co2_Xlucemi", "_", usebudget, "_years.png"), height = 7, width = 10)
-
-# Temp several quantiles ==============================================
-tmpclim <- mixbigmif %>%
-  filter(variable %in% c(
-    "Surface Air Temperature Change|q50",
-    "Surface Air Temperature Change|q10",
-    "Surface Air Temperature Change|q90"
-  )) %>%
-  filter(lsm == model | model == "AR6") %>%
-  # filter(cbudget == usebudget, period == useyear) %>%
-  mutate(model = ifelse(model != "AR6", "Calibrated_to_DVGM", model)) %>%
-  # select(scenario,model,lsm,value) %>%
-  select(scenario, model, variable, cbudget, period, lsm, value) %>%
-  pivot_wider(names_from = model, values_from = value) %>%
-  mutate(value = `Calibrated_to_DVGM` - `AR6`) %>%
-  select(-`Calibrated_to_DVGM`, -`AR6`)
-
-# Just usebudget
-tmpclim %>%
-  filter(period %in% c(2050, 2100)) %>%
-  filter(cbudget %in% c(usebudget)) %>%
-  left_join(tmpmit) %>%
-  mutate(variable = str_replace_all(variable, "Surface Air Temperature Change", "GSAT")) %>%
-  ggplot(aes(x = valuemit, y = value, color = lsm)) +
-  geom_point(size = 3) +
-  geom_smooth(se = F, method = lm, color = "grey30") +
-  # geom_line() +
-  geom_hline(yintercept = 0, color = "grey50", lty = "dashed") +
-  # geom_smooth(se = F, method = "loess") +
-  theme_bw() +
-  labs(
-    x = paste0("Cost-effective cum. LUC emissions since 2020 [GtCO2]"),
-    y = paste0("Diff. (Calibrated to DVGM - AR6 Ensemble) GSAT [K]"),
-    shape = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  ) +
-  theme(legend.position = "bottom", legend.direction = "horizontal") +
-  scale_color_manual(values = modelcolors) +
-  facet_wrap(~ period + variable, ncol = 3)
-
-ggsave(paste0("temp_diff_quantiles_Xlucemi", "_", usebudget, "_years.png"), height = 7, width = 9)
-
+ggsave(paste0("figB5_tempvsquantiles", "_", usebudget, "_", "bothyears", ".png"), width = 6, height = 5)
+ggsave(paste0("figB5_tempvsquantiles", "_", usebudget, "_", "bothyears", ".svg"), width = 6, height = 5)
 
 # ====================================================================
 # Test picking temperature target scenario
@@ -403,98 +131,8 @@ nzmifraw <- bigmif %>%
   rename(nzyearraw = period) %>%
   select(scenario, nzyearraw)
 
-illumodels <- c("LPJwsl", "ORCHIDEE", "LPJml")
-
-mixbigmif %>%
-  filter(
-    region == "World",
-    variable == "Surface Air Temperature Change|q67"
-  ) %>%
-  filter(str_detect(policy, "PkBudg")) %>%
-  filter(lsm == model | model == "AR6") %>%
-  mutate(caltype = ifelse(model != "AR6", "Calibrated_to_DVGM", "AR6 Ensemble")) %>%
-  select(scenario, period, value, cbudget, lsm, caltype) %>%
-  # group_by(scenario,cbudget, lsm) %>%
-  # summarise(peakprice = max(value, na.rm = T)) %>%
-  # ungroup() %>%
-  group_by(scenario, caltype) %>%
-  filter(value == max(value, na.rm = T)) %>%
-  ungroup() %>%
-  # filter(period == useyear) %>%
-  mutate(cbudget = as.numeric(cbudget)) %>%
-  # filter(cbudget >= 600) %>%
-  # filter(lsm %in% illumodels) %>%
-  filter(between(cbudget, mlowbudget, mhigbudget)) %>%
-  ggplot(aes(
-    x = cbudget, y = value,
-    color = lsm,
-    lty = caltype, shape = caltype
-  )) +
-  geom_point(size = 3) +
-  geom_line() +
-  # geom_smooth(se = F, method = "loess") +
-  theme_bw() +
-  labs(
-    x = "Carbon Budget from 2020 [GtCO2]",
-    y = paste0("Peak GSAT 67th perc. [K]"),
-    shape = "Climate model calibration:",
-    lty = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  ) +
-  # scale_y_continuous(
-  #     breaks = seq(400, 1000, by = 100),
-  #     minor_breaks = seq(400, 1000, by = 25)
-  # ) +
-  scale_color_manual(values = modelcolors) +
-  scale_x_continuous(breaks = seq(mlowbudget, mhigbudget, by = 40))
-
-mixbigmif %>%
-  filter(
-    region == "World",
-    variable == "Surface Air Temperature Change|q67"
-  ) %>%
-  filter(str_detect(policy, "PkBudg")) %>%
-  filter(lsm == model | model == "AR6") %>%
-  mutate(type = ifelse(model == "AR6","AR6 Ensemble", "Calibrated to DVGM")) %>%
-  filter(cbudget == 840) %>%
-  ggplot(aes(x = period, y = value, color = type, group = interaction(lsm,model))) +
-  geom_line() +
-  facet_wrap(~cbudget)
-
-
-mixbigmif %>%
-  filter(
-    region == "World",
-    variable %in% c(
-      # "Surface Air Temperature Change|q67",
-      "Surface Air Temperature Change|q50"
-    )
-  ) %>%
-  filter(str_detect(policy, "PkBudg")) %>%
-  filter(lsm == model | model == "AR6") %>%
-  mutate(caltype = ifelse(model != "AR6", "Calibrated_to_DVGM", "AR6 Ensemble")) %>%
-  select(scenario, period, variable, value, cbudget, lsm, caltype) %>%
-  group_by(scenario, variable, caltype) %>%
-  filter(value == max(value, na.rm = T)) %>%
-  ungroup() %>%
-  # filter(period == useyear) %>%
-  mutate(cbudget = as.numeric(cbudget)) %>%
-  # filter(cbudget >= 600) %>%
-  # filter(lsm %in% illumodels) %>%
-  filter(caltype == "AR6 Ensemble") %>%
-  filter(cbudget == musebudget) %>%
-  # select(lsm, cbudget, period, variable, value) %>%
-  # as.data.frame() %>%
-  # print(digits = 5)
-  summarize(
-    maxvalue = max(value, na.rm = T),
-    minvalue = min(value, na.rm = T),
-    avgvalue = mean(value, na.rm = T)
-    ) %>%
-  as.data.frame() %>%
-  print(digits = 5)
-
-mixbigmif %>%
+# Figure B2: Peak GSAT vs. Carbon Budget (AR6 ensemble only) ===========================
+p1 <- mixbigmif %>%
   filter(
     region == "World",
     variable %in% c(
@@ -522,6 +160,16 @@ mixbigmif %>%
   )) +
   geom_point(size = 3) +
   geom_line() +
+  geom_text(
+    data = tibble(
+      variable = c("Surface Air Temperature Change|q50", "Surface Air Temperature Change|q67"),
+      label = c("a", "c")
+    ),
+    aes(x = -Inf, y = Inf, label = label),
+    inherit.aes = FALSE,
+    hjust = -0.5,
+    vjust = 1.5
+  ) +
   # geom_smooth(se = F, method = "loess") +
   theme_bw() +
   labs(
@@ -538,13 +186,12 @@ mixbigmif %>%
   facet_wrap(~variable, ncol = 1, scales = "free") +
   scale_color_manual(values = modelcolors) +
   scale_x_continuous(breaks = seq(mlowbudget, mhigbudget, by = 40))
+print(p1)
 ggsave("temp_budgets_AR6_peak.png", width = 7, height = 8)
 ggsave("temp_budgets_AR6_peak.svg", width = 7, height = 8)
 
 
-
-
-mixbigmif %>%
+p2 <- mixbigmif %>%
   filter(
     region == "World",
     variable %in% c(
@@ -573,6 +220,16 @@ mixbigmif %>%
   )) +
   geom_point(size = 3) +
   geom_line() +
+  geom_text(
+    data = tibble(
+      variable = c("Surface Air Temperature Change|q50", "Surface Air Temperature Change|q67"),
+      label = c("b", "d")
+    ),
+    aes(x = -Inf, y = Inf, label = label),
+    inherit.aes = FALSE,
+    hjust = -0.5,
+    vjust = 1.5
+  ) +
   # geom_smooth(se = F, method = "loess") +
   theme_bw() +
   labs(
@@ -589,58 +246,22 @@ mixbigmif %>%
   facet_wrap(~variable, ncol = 1, scales = "free") +
   scale_color_manual(values = modelcolors) +
   scale_x_continuous(breaks = seq(mlowbudget, mhigbudget, by = 40))
+print(p2)
 ggsave("temp_budgets_AR6_EoC.png", width = 7, height = 8)
 ggsave("temp_budgets_AR6_EoC.svg", width = 7, height = 8)
 
-
-mixbigmif %>%
-  filter(
-    region == "World",
-    variable %in% c(
-      "Surface Air Temperature Change|q67",
-      "Surface Air Temperature Change|q50"
-    )
-  ) %>%
-  filter(str_detect(policy, "PkBudg")) %>%
-  filter(lsm == model | model == "AR6") %>%
-  mutate(caltype = ifelse(model != "AR6", "Calibrated to DVGM (incl. Budget effects)", "AR6 Ensemble")) %>%
-  select(scenario, period, variable, value, cbudget, lsm, caltype) %>%
-  group_by(scenario, variable, caltype) %>%
-  filter(value == max(value, na.rm = T)) %>%
-  ungroup() %>%
-  # filter(period == useyear) %>%
-  mutate(cbudget = as.numeric(cbudget)) %>%
-  # filter(cbudget >= 600) %>%
-  # filter(lsm %in% illumodels) %>%
-  # filter(caltype == "AR6 Ensemble") %>%
-  filter(between(cbudget, mlowbudget, mhigbudget)) %>%
-  ggplot(aes(
-    x = cbudget, y = value,
-    color = lsm,
-    lty = caltype, shape = caltype
-  )) +
-  geom_point(size = 3) +
-  geom_line() +
-  # geom_smooth(se = F, method = "loess") +
-  theme_bw() +
-  labs(
-    x = "Carbon Budget from 2020 [GtCO2]",
-    y = paste0("Peak GSAT (50th or 67th percentile) [K]"),
-    shape = "Climate model calibration:",
-    lty = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  ) +
-  # scale_y_continuous(
-  #     breaks = seq(400, 1000, by = 100),
-  #     minor_breaks = seq(400, 1000, by = 25)
-  # ) +
-  facet_wrap(~variable, ncol = 1, scales = "free") +
-  scale_color_manual(values = modelcolors) +
-  scale_x_continuous(breaks = seq(mlowbudget, mhigbudget, by = 40))
-ggsave("temp_budgets_both_peak.png", width = 7, height = 8)
-ggsave("temp_budgets_both_peak.svg", width = 7, height = 8)
+leg <- get_legend(p1)
+pcomb <- cowplot::plot_grid(
+  p1 + theme(legend.position = "none"),
+  p2 + theme(legend.position = "none")
+)
+cowplot::plot_grid(pcomb, leg, ncol = 2, rel_widths = c(1, 0.3)) +
+  theme(plot.background = element_rect(fill = "white", color = NA))
+ggsave("figb2_temp_budgets_AR6_peak_and_EoC.png", width = 10, height = 8)
+ggsave("figb2_temp_budgets_AR6_peak_and_EoC.svg", width = 10, height = 8)
 
 
+# Figure B6: Peak GSAT vs. Carbon Budget (density and budget effects) ==========================
 mixbigmif %>%
   filter(
     region == "World",
@@ -686,61 +307,10 @@ mixbigmif %>%
   facet_wrap(~variable, ncol = 1, scales = "free") +
   scale_color_manual(values = modelcolors) +
   scale_x_continuous(breaks = seq(mlowbudget, mhigbudget, by = 40))
-ggsave("temp_budgets_both_just50_peak.png", width = 8, height = 5)
-ggsave("temp_budgets_both_just50_peak.svg", width = 8, height = 5)
+ggsave("figB6_temp_budgets_both_just50_peak.png", width = 8, height = 5)
+ggsave("figB6_temp_budgets_both_just50_peak.svg", width = 8, height = 5)
 
-
-
-mixbigmif %>%
-  filter(
-    region == "World",
-    variable %in% c(
-      "Surface Air Temperature Change|q67",
-      "Surface Air Temperature Change|q50"
-    )
-  ) %>%
-  filter(str_detect(policy, "PkBudg")) %>%
-  filter(lsm == model | model == "AR6") %>%
-  mutate(caltype = ifelse(model != "AR6", "Calibrated_to_DVGM", "AR6 Ensemble")) %>%
-  select(model,scenario, period, variable, value, cbudget, lsm, caltype) %>%
-  # group_by(scenario, caltype) %>%
-  # filter(value == max(value, na.rm = T)) %>%
-  # ungroup() %>%
-  filter(period == 2100) %>%
-  # select(model) %>% unique
-  mutate(cbudget = as.numeric(cbudget)) %>%
-  # filter(cbudget >= 600) %>%
-  # filter(lsm %in% illumodels) %>%
-  # filter(caltype == "AR6 Ensemble") %>%
-  filter(between(cbudget, mlowbudget, mhigbudget)) %>%
-  ggplot(aes(
-    x = cbudget, y = value,
-    color = lsm,
-    lty = caltype, shape = caltype
-  )) +
-  geom_point(size = 3) +
-  geom_line() +
-  # geom_smooth(se = F, method = "loess") +
-  theme_bw() +
-  labs(
-    x = "Carbon Budget from 2020 [GtCO2]",
-    y = paste0("2100 GSAT 67th perc. [K]"),
-    shape = "Climate model calibration:",
-    lty = "Climate model calibration:",
-    color = "C densities from DVGM:"
-  ) +
-  # scale_y_continuous(
-  #     breaks = seq(400, 1000, by = 100),
-  #     minor_breaks = seq(400, 1000, by = 25)
-  # ) +
-  facet_wrap(~variable, ncol = 1, scales = "free") +
-  scale_color_manual(values = modelcolors) +
-  scale_x_continuous(breaks = seq(mlowbudget, mhigbudget, by = 40))
-ggsave("temp_budgets_both_EoC.png", width = 7, height = 8)
-ggsave("temp_budgets_both_EoC.svg", width = 7, height = 8)
-
-
-# Target budget estimation ===========================
+# KEY: Target budget estimation ===========================
 
 ttarget <- 1.7
 tbudgetinfo <- mixbigmif %>%
@@ -832,127 +402,9 @@ mixbigmif %>%
   summarise(in_range = any(value >= ttarget)) %>%
   pivot_wider(names_from = caltype, values_from = in_range)
 
-
-# TCRE-like estimates =======================================
-pktemp <- mixbigmif %>%
-  filter(variable == "Surface Air Temperature Change|q50") %>%
-  group_by(model,scenario,lsm) %>%
-  filter(value == max(value, na.rm = T)) %>% 
-  ungroup %>%
-  filter(str_detect(policy,"PkBudg")) %>%
-  mutate(variable == "Peak Temperature|q50")
-  
-xvarname <- "Emi|CO2|+|Land-Use Change|Cum"
-xmif <- bigmif %>%
-  filter(region %in% c("GLO", "World")) %>% # select(variable) %>% unique %>% print(n=1000)
-  filter(variable == xvarname) %>%
-  filter(period == 2050) %>%
-  mutate(variable = ifelse(variable == xvarname, "xvar", variable)) %>%
-  mutate(value = ifelse(variable == "xvar", value * 1e-3, value)) %>%
-  pivot_wider(names_from = variable, values_from = value) %>%
-  # select(scenario,period,cbudget, lsm, xvar)
-  select(scenario, cbudget, lsm, xvar)
-
-left_join(pktemp, xmif)
-
-
-p1 <- pktemp %>%
-  filter(cbudget <= 900) %>%
-  filter(model != "AR6") %>%
-  ggplot(aes(x = cbudget, y = value, color = model, group = interaction(model,lsm))) +
-  geom_point() +
-  geom_smooth(se = F, method = lm) +
-  geom_hline(yintercept = 1.7) +
-  scale_color_manual(values = modelcolors) +
-  labs(
-    x = "Peak cumulative emissions [GtCO2]",
-    y = "GSAT 50th percentile [K]",
-    color = "DVGM"
-        ) +
-  theme(legend.position = "bottom", legend.direction = "horizontal")
-
-p2 <- left_join(pktemp, xmif) %>%
-  filter(cbudget <= 900) %>%
-  filter(model != "AR6") %>%
-  ggplot(aes(x = xvar, y = value, color = model, group = interaction(model,lsm))) +
-  geom_point() +
-  geom_smooth(se = F, method = lm) +
-  geom_hline(yintercept = 1.7) +
-  scale_color_manual(values = modelcolors) +
-  labs(
-    x = "Cum. LUC emissions in 2050 [GtCO2]",
-    y = "GSAT 50th percentile [K]",
-    color = "DVGM"
-    
-  ) +
-  theme(legend.position = "bottom", legend.direction = "horizontal")
-
-leg <- get_legend(p1)
-p1 <- p1 + theme(legend.position = "none")
-p2 <- p2 + theme(legend.position = "none")
-
-pcomb <- cowplot::plot_grid(p1,p2)
-cowplot::plot_grid(pcomb, leg, ncol = 1, rel_heights = c(1,0.2)) + 
-  theme(plot.background = element_rect(fill = "white", color = NA))
-ggsave("tcre_like.png", width = 10, height = 5)
-
-
 # ====================================================================
 # Summary plots with target budget comparison =================
 # ====================================================================
-
-# Basic summary plots
-bigmif %>%
-  filter(
-    region %in% c("GLO", "World"),
-    variable %in% c(
-      "Resources|Land Cover|+|Forest",
-      "Emi|CO2|+|Energy|Cum",
-      "Emi|CO2|+|Land-Use Change|Cum",
-      "Price|Carbon"
-    )
-  ) %>%
-  filter(str_detect(policy, "PkBudg")) %>%
-  mutate(variable = paste0(variable, " [", unit, "]")) %>%
-  filter(period %in% c(2050, 2100)) %>%
-  # filter(period %in% c(2050, 2100)) %>%
-  left_join(tbudgetinfo) %>%
-  mutate(model = case_when( # Caveat: This doesn't work if both budgets are the same
-    cbudget == tbudgetar6 ~ "Climate-AR6",
-    cbudget == tbudgetdvgm ~ "Climate-DVGM ",
-    TRUE ~ NA
-  )) %>%
-  filter(!is.na(model)) %>%
-  ggplot(aes(x = lsm, y = value, color = lsm, shape = model, group = lsm)) +
-  geom_point(size = 3) +
-  geom_line() +
-  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  coord_flip() +
-  facet_wrap(~ variable + period, scales = "free", ncol = 2) +
-  scale_color_manual(values = modelcolors) +
-  theme_bw() +
-  labs(
-    x = "",
-    y = "",
-    shape = "Climate parametrization",
-    color = "C densities from DVGM:"
-  )
-ggsave("summary_basic_tbudget2K67.png", width = 10, height = 8)
-
-
-bigmif %>%
-  filter(
-    variable %in% c(
-      "Emi|CO2|+|Land-Use Change|Cum"
-    ),
-    region %in% c("GLO", "World")
-  ) %>%
-  filter(period == 2100) %>%
-  filter(cbudget == musebudget) %>%
-  group_by(variable, model) %>%
-  summarise(min = min(value), max = max(value), dif = max-min,mean = min(value), dpc = 100*dif/mean)
-
-
 # MAIN Figure 2: Summary (main) with same variables as previous section ==========================
 xvarname <- "Emi|CO2|+|Land-Use Change|Cum"
 xmif <- bigmif %>%
@@ -965,13 +417,6 @@ xmif <- bigmif %>%
   # select(scenario,period,cbudget, lsm, xvar)
   select(scenario, cbudget, lsm, xvar)
 
-# mixbigmif %>%
-#   filter(region %in% c("GLO", "World")) %>%
-#   filter(variable == "Price|Carbon") %>%
-#   filter(period == 2050) %>%
-#   View
-
-# C_ESM2025v05-LPJwsl-SSP2-PkBudg540-rem-5
 varorder <- c(
   "Carbon budget\nto 1.7°C 50th perc.[GtCO2]",
   "Forest area change\n2020-2050 [Mha]",
@@ -1097,17 +542,19 @@ dum %>%
     shape = "Climate parametrization",
     color = "C densities from DVGM:"
   )
-ggsave("summary_tbudget_1p7K50_dvgm.png", width = 9, height = 9)
-ggsave("summary_tbudget_1p7K50_dvgm.svg", width = 9, height = 9)
+ggsave("fig2_summary_tbudget_1p7K50_dvgm.png", width = 9, height = 9)
+ggsave("fig2_summary_tbudget_1p7K50_dvgm.svg", width = 9, height = 9)
 
+# Summary statistics for the figure
 dum %>% 
   group_by(variable, model) %>%
-  summarise(min = min(value), max = max(value), dif = max-min,mean = min(value), dpc = 100*dif/mean)
+  summarise(min = min(value), max = max(value), dif = max-min,mean = mean(value), dpc = 100*dif/mean)
 
 dum %>% 
   filter(variable == "Forest area change\n2020-2050 [Mha]") %>%
   group_by(variable, model) %>%
-  summarise(min = min(xvar), max = max(xvar), dif = max-min,mean = min(xvar), dpc = 100*dif/mean)
+  mutate(variable = xvarname) %>%
+  summarise(min = min(xvar), max = max(xvar), dif = max-min,mean = mean(xvar), dpc = 100*dif/mean)
 
 dum %>%
   filter(variable == "Forest area change\n2020-2050 [Mha]") %>%
@@ -1127,7 +574,7 @@ dum %>%
 ggsave("luc_per_forest.png", width = 8, height = 6)
 
 
-# SM Figure: Summary (SM) for 2100 ==========================
+# Figure B10 : Summary for 2100 ==========================
 xvarname <- "Emi|CO2|+|Land-Use Change|Cum"
 xmif <- bigmif %>%
   filter(region %in% c("GLO", "World")) %>% # select(variable) %>% unique %>% print(n=1000)
@@ -1271,15 +718,16 @@ dum %>%
     shape = "Climate parametrization",
     color = "C densities from DVGM:"
   )
-ggsave("summary_2100_tbudget_1p7K50_dvgm.png", width = 9, height = 9)
-ggsave("summary_2100_tbudget_1p7K50_dvgm.svg", width = 9, height = 9)
+ggsave("figB10_summary_2100_tbudget_1p7K50_dvgm.png", width = 9, height = 9)
+ggsave("figB10_summary_2100_tbudget_1p7K50_dvgm.svg", width = 9, height = 9)
 
+# Summary statistics for the figure
 dum %>% 
   group_by(variable, model) %>%
   summarise(min = min(value), max = max(value), dif = max-min,mean = min(value), dpc = 100*dif/mean)
 
 
-# Emissions over time =======================================================
+# Figure B11: Emissions over time (currently not on document=======================================
 mixbigmif %>%
   filter(
     # cbudget == usebudget,
@@ -1321,7 +769,7 @@ mixbigmif %>%
     color = "DVGM",
     shape = ""
   )
-ggsave("emissions_time.png", width = 8, height = 8)
+ggsave("figB11_emissions_time.png", width = 8, height = 8)
 
 
 
