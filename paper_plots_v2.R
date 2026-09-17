@@ -789,7 +789,7 @@ mixbigmif %>%
 ggsave("figB11_emissions_time.png", width = 8, height = 8)
 
 
-
+# Forest area change 2020-2050
 bigmif %>%
   filter(
     region %in% c("GLO", "World"),
@@ -1393,6 +1393,11 @@ usemif %>%
   mutate(variable = str_remove(variable, fixed("Emi|CO2|Cumulated|CDR|"))) %>%
   ggplot(aes(x = lsm, y = value, fill = variable)) +
   geom_col() +
+  geom_text(
+    data = tibble(period = c(2050, 2100), label = c("a", "b"), x = -Inf, y = Inf),
+    aes(x = x, y = y, label = label),
+    size = 6, hjust = -0.3, vjust = 1.2, color = "black", inherit.aes = FALSE
+  ) +
   facet_wrap(~period, scales = "free_y") +
   scale_fill_manual(values = cdrcolors) +
   theme_bw() +
@@ -1472,11 +1477,11 @@ cdrdata %>%
     y = "Cumulative BECCS CDR since 2020 [GtCO2]",
     color = "C densities from DVGM:"
   ) +
-  # scale_y_continuous(
-  #     breaks = seq(400, 1000, by = 100),
-  #     minor_breaks = seq(400, 1000, by = 25)
-  #     ) +
-  # geom_hline(yintercept = 0) +
+  geom_text(
+    data = tibble(period = useyears, label = c("a", "b"), x = -Inf, y = Inf),
+    aes(x = x, y = y, label = label),
+    size = 6, hjust = -0.3, vjust = 1.2, color = "black", inherit.aes = FALSE
+  ) +
   facet_wrap(~period, scales = "free") +
   # pad each panel by 10% of its own data range (default is 5%)
   scale_x_continuous(expand = expansion(mult = 0.1)) +
@@ -1529,6 +1534,16 @@ bigmif %>%
   filter(between(period, 2025, 2070)) %>%
   ggplot(aes(x = period, y = value, color = lsm)) +
   geom_line() +
+  geom_text(
+    data = tibble(
+      variable = c("Electricity share of final energy [%]", "PE share of fossils [%]", "Total CO2 emissions [MtCO2/yr]"),
+      label = c("a", "b", "c"),
+      x = -Inf,
+      y = Inf
+    ),
+    aes(x = x, y = y, label = label),
+    size = 6, hjust = -0.3, vjust = 1.2, color = "black", inherit.aes = FALSE
+  ) +
   scale_color_manual(values = modelcolors) +
   labs(
     x = "",
