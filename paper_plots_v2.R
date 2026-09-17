@@ -1365,27 +1365,7 @@ ggsave("budgetXall_combined.png", width = 11, height = 9)
 ggsave("budgetXall_combined.svg", width = 11, height = 9)
 
 
-# CDR breakdown for selected budgets =========================================
-
-tot <- "Emi|CO2|CDR"
-items <- c(
-  "Emi|CO2|CDR|+|BECCS",
-  "Emi|CO2|CDR|+|DACCS",
-  "Emi|CO2|CDR|+|EW",
-  "Emi|CO2|CDR|+|Land-Use Change",
-  "Emi|CO2|CDR|+|Materials",
-  "Emi|CO2|CDR|+|OAE",
-  "Emi|CO2|CDR|+|Synthetic Fuels CCS"
-)
-plt <- bigmif %>%
-  filter(variable %in% c(tot, items)) %>%
-  filter(cbudget == usebudget) %>%
-  filter(region == "GLO") %>%
-  createAreaAndBarPlots(items, tot, mainReg = "GLO", , yearsBarPlot = c(2050, 2100), scales = "fixed")
-plt
-  # showAreaAndBarPlots(items, tot, mainReg = "GLO", , yearsBarPlot = c(2050, 2100), scales = "fixed")
-ggsave(paste0("cdr_bars_",usebudget,".png"), width = 14, height = 5)
-
+# Figure B8: CDR stacked bar breakdown for selected budget =========================================
 tot <- "Emi|CO2|Cumulated|CDR"
 items <- c(
   "Emi|CO2|Cumulated|CDR|BECCS",
@@ -1405,13 +1385,6 @@ usemif <- bigmif %>%
   arrange(period, .by_group = TRUE) %>%
   mutate(value = value - value[match(2020, period)]) %>%
   ungroup()
-
-# plt <- bigmif %>%
-#   filter(variable %in% c(tot, items)) %>%
-#   filter(cbudget == usebudget) %>%
-#   filter(region == "GLO") %>%
-#   createAreaAndBarPlots(items, tot, mainReg = "GLO", , yearsBarPlot = c(2050, 2100), scales = "fixed")
-# plt
 
 usemif %>%
   filter(variable %in% items) %>% # components only, tot would double-count
@@ -1433,68 +1406,10 @@ usemif %>%
     strip.background = element_blank(),
     strip.text = element_text(face = "bold", size = rel(1.0))
   )
-ggsave("cdr_stacked_bars.png", width = 8, height = 5)
+ggsave("figB8_cdr_stacked_bars.png", width = 8, height = 5)
 
 
-# ===================================================================
-# CDR isoline plots
-# ===================================================================
-
-useyears <- c(2050, 2100)
-usebudget <- musebudget
-
-xvarname <- "Emi|CO2|Cumulated|CDR|Land-Use Change"
-yvarname <- "Emi|CO2|Cumulated|CDR|BECCS"
-zvarname <- "Emi|CO2|Cumulated|CDR"
-bigmif %>%
-  filter(
-    region == "GLO",
-    # variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
-    variable %in% c(xvarname, yvarname, zvarname)
-  ) %>%
-  mutate(value = value * 1e-3 * -1) %>% # MtCO2 to GtCO2 and make positive
-  filter(str_detect(policy, "PkBudg")) %>%
-  filter(cbudget == usebudget) %>%
-  mutate(variable = case_when(
-    variable == xvarname ~ "xvar",
-    variable == yvarname ~ "yvar",
-    variable == zvarname ~ "zvar"
-  )) %>%
-  select(scenario, period, variable, value, cbudget, lsm) %>%
-  filter(period %in% useyears) %>%
-  pivot_wider(names_from = variable, values_from = value) %>%
-  # mutate(cbudget = as.numeric(cbudget)) %>%
-  # filter(cbudget >= 600) %>%
-  ggplot(aes(x = xvar, y = yvar, color = lsm)) +
-  geom_textabline(
-    aes(intercept = alpha, slope = beta, label = alpha),
-    color = "grey70",
-    data = data.frame(alpha = seq(0, 1000, 20), beta = -1)
-  ) +
-  geom_abline(aes(intercept = zvar, slope = -1, color = lsm)) +
-  # geom_abline(intercept = seq(0,1000,10), slope = -1, color = "grey70") +
-  geom_point(size = 3) +
-  theme_bw() +
-  labs(
-    x = "Cumulative LUC CDR since 2020 [GtCO2]",
-    y = "Cumulative BECCS CDR since 2020 [GtCO2]",
-    color = "C densities from DVGM:"
-  ) +
-  # scale_y_continuous(
-  #     breaks = seq(400, 1000, by = 100),
-  #     minor_breaks = seq(400, 1000, by = 25)
-  #     ) +
-  # geom_hline(yintercept = 0) +
-  facet_wrap(~period, scales = "free") +
-  scale_color_manual(values = modelcolors)
-# theme(legend.position = "bottom", legend.orientation = "horizontal") +
-# scale_x_continuous(breaks = seq(600, 720, by = 20))
-ggsave("cdr_isolines.png", height = 4, width = 10)
-ggsave("cdr_isolines.svg", height = 4, width = 10)
-
-# CDR isoline plots, updated
-# ===================================================================
-
+# MAIN Figure 3: CDR isoline plots =============================================
 useyears <- c(2050, 2100)
 usebudget <- musebudget
 
@@ -1575,98 +1490,8 @@ cdrdata %>%
     strip.text = element_text(face = "bold", size = rel(1.0))
     )
 # scale_x_continuous(breaks = seq(600, 720, by = 20))
-ggsave("cdr_isolines_v2.png", height = 6*0.8, width = 10*0.8)
-ggsave("cdr_isolines_v2.svg", height = 6*0.8, width = 10*0.8)
-
-
-
-# ===================================================================
-# CDR isoline plots, area
-# ===================================================================
-
-useyears <- c(2050, 2100)
-usebudget <- musebudget
-
-
-str(bigmif)
-
-str(armif)
-
-armif <- bigmif %>%
-  filter(
-    region == "GLO",
-    variable %in% c(
-      "Resources|Land Cover Change|Forest|Planted Forest|Natural|+|CO2-price AR",
-      "Resources|Land Cover Change|Forest|Planted Forest|Plantations|+|CO2-price AR"
-    )) %>%
-    calc_addVariable(
-      "Resources|Land Cover Change|Forest|Planted Forest|CO2-price AR" = "`Resources|Land Cover Change|Forest|Planted Forest|Natural|+|CO2-price AR` + `Resources|Land Cover Change|Forest|Planted Forest|Natural|+|CO2-price AR`",
-      units = "million ha wrt 1995", only.new = T
-    ) #%>%
-
-usemif <- bigmif %>%
-  filter(
-    region == "GLO",
-    variable %in% c(
-      "Resources|Land Cover|Cropland|Croparea|+|Bioenergy crops"
-    )) %>%
-    bind_rows(armif) %>%
-    rebase_to_period(ref_period = 2020) %>%
-    calc_addVariable(
-      "Land Cover Change|CO2-price AR and Bioenergy crops" = "`Resources|Land Cover|Cropland|Croparea|+|Bioenergy crops` + `Resources|Land Cover Change|Forest|Planted Forest|CO2-price AR`",
-      units = "million ha wrt 2020", only.new = F
-    ) 
-
-
-xvarname <- "Resources|Land Cover Change|Forest|Planted Forest|CO2-price AR"
-yvarname <- "Resources|Land Cover|Cropland|Croparea|+|Bioenergy crops"
-zvarname <- "Land Cover Change|CO2-price AR and Bioenergy crops"
-
-usemif %>%
-  filter(
-    region == "GLO",
-    # variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
-    variable %in% c(xvarname, yvarname, zvarname)
-  ) %>%
-  # mutate(value = value * 1e-3 * -1) %>% # MtCO2 to GtCO2 and make positive
-  filter(str_detect(policy, "PkBudg")) %>%
-  filter(cbudget == usebudget) %>%
-  mutate(variable = case_when(
-    variable == xvarname ~ "xvar",
-    variable == yvarname ~ "yvar",
-    variable == zvarname ~ "zvar"
-  )) %>%
-  select(scenario, period, variable, value, cbudget, lsm) %>%
-  filter(period %in% useyears) %>%
-  pivot_wider(names_from = variable, values_from = value) %>%
-  # mutate(cbudget = as.numeric(cbudget)) %>%
-  # filter(cbudget >= 600) %>%
-  ggplot(aes(x = xvar, y = yvar, color = lsm)) +
-  geom_textabline(
-    aes(intercept = alpha, slope = beta, label = alpha),
-    color = "grey70",
-    data = data.frame(alpha = seq(0, 1000, 20), beta = -1)
-  ) +
-  geom_abline(aes(intercept = zvar, slope = -1, color = lsm)) +
-  # geom_abline(intercept = seq(0,1000,10), slope = -1, color = "grey70") +
-  geom_point(size = 3) +
-  theme_bw() +
-  labs(
-    x = "CO2-induced afforetation since 2020 [MHa]",
-    y = "New area for bioenergy crops since 2020 [MHa]",
-    color = "C densities from DVGM:"
-  ) +
-  # scale_y_continuous(
-  #     breaks = seq(400, 1000, by = 100),
-  #     minor_breaks = seq(400, 1000, by = 25)
-  #     ) +
-  # geom_hline(yintercept = 0) +
-  facet_wrap(~period, scales = "free") +
-  scale_color_manual(values = modelcolors)
-# theme(legend.position = "bottom", legend.orientation = "horizontal") +
-# scale_x_continuous(breaks = seq(600, 720, by = 20))
-ggsave("cdr_isolines_area.png", height = 4, width = 10)
-ggsave("cdr_isolines_area.svg", height = 4, width = 10)
+ggsave("fig3_cdr_isolines_v2.png", height = 6*0.8, width = 10*0.8)
+ggsave("fig3_cdr_isolines_v2.svg", height = 6*0.8, width = 10*0.8)
 
 
 # Figure B3: Transition indicators ==============================================
