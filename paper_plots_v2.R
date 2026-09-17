@@ -8,7 +8,8 @@ require(ggpp)
 require(GGally)
 require(mip)
 options(width = 140)
-# Model colors
+
+# Model colors, may be renamed or filtered  in preprocessing
 source("colors_models_v1.R")
 # REMIND-MAgPIE variables to keep from the MIF
 # extractvarsrem and extractvarsmag variables come from here
@@ -39,19 +40,35 @@ harmfname <- "ESM2025v05p1_full_harmonized_clean.csv"
 mifpaths <- Sys.glob("clusterdown_v05p1/REMIND_generic*.mif")
 mifpaths <- mifpaths[str_detect(mifpaths, "withoutPlus", negate = TRUE)]
 
-# Rerun/caching toggles for the preprocessing step (preprocess_v1.R)
+# Rerun/caching toggles for the preprocessing step (preprocess_v2.R)
 # rerun_bigmif <- TRUE
 rerun_bigmif <- FALSE
 rerun_mixbigmif <- FALSE
-# rerun_bigmif <- TRUE
-# rerun_mixbigmif <- TRUE
+# rerun_bigmif <- FALSE
+# rerun_mixbigmif <- FALSE
+
+# ====================================================================
+# Model renaming and filtering configuration
+# This mapping is applied as the last step in preprocessing to:
+#   1. Rename models in bigmif and mixbigmif data
+#   2. Filter out models from the data (0 = exclude, 1 = include)
+#   3. Update the modelcolors mapping accordingly
+# ====================================================================
+rename_models <- list(
+  # Vector of old_name = new_name for renaming
+  rename = c("LPJml" = "LPJmL"),
+
+  # Named vector with 1 = include model, 0 = exclude model
+  # Leave empty (numeric()) to include all models
+  include = c("lpxqs" = 0)
+)
 
 # ====================================================================
 # Preprocessing: reads and caches the MIF databases using the config
 # set above. Produces bigmif, mixbigmif, sceninfo, allglostocks,
 # stockmodels and histfluxmif for the plots below.
 # ====================================================================
-source("preprocess_v1.R")
+source("preprocess_v2.R")
 
 
 
@@ -786,89 +803,7 @@ bigmif %>%
   filter(period == 2050) %>%
   summarize(value = mean(value, na.rm = T)) 
 
-  # mutate(value = value - )
-# "Resources|Land Cover|+|Forest in 2050"
-
-# Summary plots NZ =================================
-xvarname <- "Emi|CO2|+|Land-Use Change|Cum"
-xmif <-
-  bigmif %>%
-  filter(region %in% c("GLO", "World")) %>% # select(variable) %>% unique %>% print(n=1000)
-  filter(variable == xvarname) %>%
-  left_join(nzmifraw) %>%
-  filter(period == nzyearraw) %>%
-  mutate(variable = ifelse(variable == xvarname, "xvar", variable)) %>%
-  mutate(value = ifelse(variable == "xvar", value * 1e-3, value)) %>%
-  pivot_wider(names_from = variable, values_from = value) %>%
-  # select(scenario,period,cbudget, lsm, xvar)
-  select(scenario, cbudget, lsm, xvar)
-
-combmif <-
-  mixbigmif %>%
-  filter(
-    # cbudget == usebudget,
-    region %in% c("GLO", "World")
-  ) %>%
-  left_join(nzmifraw) %>%
-  filter(period == nzyearraw) %>%
-  left_join(xmif) %>% # filter(variable %in% c("Emi|CO2","Price|Carbon"), period == 2050, lsm == "LPJml")
-  mutate(value = case_when(
-    variable == "Emi|CO2|Cumulated|Gross|Energy and Industrial Processes" ~ value * 1e-3, # MtCO2 to GtCO2
-    variable == "Emi|CO2|Cumulated|CDR" ~ value * -1e-3, # MtCO2 to GtCO2
-    TRUE ~ value
-  )) %>%
-  # mutate(variable = paste0(variable, " at the time of net-zero")) %>%
-  mutate(variable = case_when(
-    variable == "Resources|Land Cover|+|Forest" ~ "Forest Area [Mha]",
-    # variable == "Resources|Land Cover|+|Forest in 2100" ~ "Forest Area in 2100 [Mha]",
-    variable == "Emi|CO2|Cumulated|Gross|Energy and Industrial Processes" ~ "Cum. Gross FFI CO2 emi. [GtCO2]",
-    variable == "Price|Carbon" ~ "Carbon Price [$/tCO2]",
-    # variable == "Price|Carbon in 2030" ~ "Carbon Price in 2030 [$/tCO2]",
-    variable == "Emi|CO2|Cumulated|CDR" ~ "Total cum. CDR [$/tCO2]",
-    TRUE ~ NA
-  )) %>%
-  filter(!is.na(variable)) %>%
-  filter_tbudget(tbudgetinfo) %>%
-  left_join(tbudgetinfo) #%>% #View
-
-combmif <- combmif %>%
-  select(model,scenario,lsm,nzyearraw,xvar) %>%
-  distinct() %>%
-  mutate(variable = "Year of net-zero", unit = "year") %>%
-  rename(value = nzyearraw) %>%
-  bind_rows(combmif,.)
-
-combmif %>%
-  bind_rows(
-    tbudgetmif %>%
-      mutate(model = ifelse(model == "AR6","AR6 Ensemble","Calibrated to DVGM")) %>%
-      left_join(rename(xmif, value = cbudget))
-  ) %>%
-  mutate(model = ifelse(model == "AR6 Ensemble", "Only C potential effect", "C potential + Budget effects")) %>%
-  mutate(variable = str_replace(variable, " in 20", "\n20")) %>%
-  mutate(variable = str_replace(variable, " to 1.7C", "\nto 1.7°C")) %>%
-  # ggplot(aes(x = lsm, y = value, color = lsm, shape = model, group = lsm)) +
-  ggplot(aes(x = xvar, y = value, color = lsm, shape = model)) +
-  geom_point(size = 3) +
-  # geom_line() +
-  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  # coord_flip() +
-  # facet_wrap(~ variable + model, scales = "free", ncol = 2) +
-  facet_grid(variable ~ model, scales = "free") +
-  scale_color_manual(values = modelcolors) +
-  theme_bw() +
-  labs(
-    x = "Cost-effective cum. LUC emissions since 2020 [GtCO2]",
-    y = "",
-    shape = "",
-    color = "C densities from DVGM:"
-  )
-ggsave("summary_nz_tbudget_1p7K50_dvgm.png", width = 8, height = 10)
-
-# Just net-zero years =======================================
-
-
-# Illustrative Carbon prices =================================
+# Figure B5: Illustrative Carbon prices =================================
 
 # 1. Define region code to descriptive name mapping
 region_map <- c(
@@ -907,14 +842,31 @@ custom_palette <- c(
 bigmif %>%
   filter(variable == "Price|Carbon") %>%
   filter(lsm == "LPJml") %>%
-  filter(cbudget %in% c(600, 860)) %>% 
+  filter(cbudget %in% c(600, 860)) %>%
   mutate(
     region_name = dplyr::recode(region, !!!region_map),
-    cbudget_label = paste("Carbon Budget:", cbudget, " GtCO2")
+    cbudget_label = paste("Carbon Budget:", cbudget, " GtCO2"),
+    label = NA_character_
   ) %>%
+  {
+    max_val <- max(.$value, na.rm = TRUE)
+    bind_rows(
+      .,
+      tibble(cbudget = c(600, 860), period = 2023, value = max_val * 0.95) %>%
+        mutate(
+          cbudget_label = paste("Carbon Budget:", cbudget, " GtCO2"),
+          label = c("a", "b"),
+          region_name = NA_character_,
+          region = NA_character_,
+          variable = NA_character_,
+          lsm = NA_character_
+        )
+    )
+  } %>%
   ggplot(aes(x = period, y = value, color = region_name, group = region_name)) +
-  geom_line(linewidth = 1) +
+  geom_line(linewidth = 1, na.rm = TRUE) +
   # geom_point(size = 1.5) +
+  geom_text(aes(label = label), size = 5, vjust = -0.5, hjust = -0.5, color = "black", na.rm = TRUE) +
   facet_wrap(~ cbudget_label) +
   scale_color_manual(values = custom_palette) +
   xlim(2020,2100) +
@@ -930,7 +882,7 @@ bigmif %>%
     legend.position = "bottom"
   )
 
-ggsave("illustrative_cprice.png", width = 9, height = 5)
+ggsave("figB5_illustrative_cprice.png", width = 9, height = 5)
 
 # Illustrative Stacked bar =================================
 bigmif %>% select(lsm) %>% unique 
@@ -2214,158 +2166,7 @@ ggsave("cdr_isolines_area.png", height = 4, width = 10)
 ggsave("cdr_isolines_area.svg", height = 4, width = 10)
 
 
-# ===================================================================
-# Stuff for Sirisha
-# ===================================================================
-usebudget <- 720
-bigmif %>%
-  filter(cbudget == usebudget) %>%
-  write.mif("for_sirisha_20may.mif")
-
-
-bigmif %>%
-  filter(cbudget == usebudget) %>%
-  filter(variable %in% c(
-    "Emi|CO2|CDR|+|BECCS",
-    "Emi|CO2|CDR|+|DACCS",
-    "Emi|CO2|CDR|+|EW",
-    "Emi|CO2|CDR|+|Land-Use Change",
-    "Emi|CO2|CDR|+|Materials",
-    "Emi|CO2|CDR|+|OAE",
-    "Emi|CO2|CDR|+|Synthetic Fuels CCS"
-  ))
-
-bigmif %>%
-  filter(cbudget == usebudget, region == "World") %>%
-  filter(variable %in% c(
-    "Emissions|CO2|Land RAW|Land-use Change|+|Forest degradation",
-    "Emissions|CO2|Land RAW|Land-use Change|+|Other land conversion",
-    "Emissions|CO2|Land RAW|Land-use Change|+|Peatland",
-    "Emissions|CO2|Land RAW|Land-use Change|+|Regrowth",
-    "Emissions|CO2|Land RAW|Land-use Change|+|Residual",
-    "Emissions|CO2|Land RAW|Land-use Change|+|Soil",
-    "Emissions|CO2|Land RAW|Land-use Change|+|Timber",
-    "Emissions|CO2|Land RAW|Land-use Change|+|Wood Harvest"
-  )) %>%
-  mutate(variable = str_replace(variable, "Emissions\\|CO2\\|Land RAW\\|Land-use Change\\|\\+\\|", "")) %>%
-  ggplot(aes(x = period, y = value, color = lsm)) +
-  geom_line() +
-  facet_wrap(~variable, scales = "free_y")
-
-unique(bigmif$variable)
-
-bigmif %>%
-  filter(cbudget == usebudget, region == "World") %>%
-  filter(variable %in% c(
-    "Resources|Land Cover|+|Forest"
-  )) %>%
-  mutate(variable = str_replace(variable, "Emissions\\|CO2\\|Land RAW\\|Land-use Change\\|\\+\\|", "")) %>%
-  ggplot(aes(x = period, y = value, color = lsm)) +
-  geom_line() +
-  facet_wrap(~variable, scales = "free_y")
-
-bigmif %>%
-  filter(cbudget == usebudget, region == "World") %>%
-  filter(variable %in% c(
-    "Resources|Land Cover|+|Forest"
-  )) %>%
-  filter(lsm == "LPJml") %>%
-  arrange(period) %>%
-  mutate(delta = value - lag(value))
-options(width = 120)
-
-# ===================================================================
-# Deriving TCRE from AR6 calibration
-# ===================================================================
-tmpmif <- bigmif %>%
-  filter(
-    region == "World",
-    variable == "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile"
-    # variable == "Emi|CO2|+|Land-Use Change|Cum"
-  ) %>%
-  filter(str_detect(policy, "PkBudg")) %>%
-  select(scenario, period, value, cbudget, lsm) %>%
-  # group_by(scenario,cbudget, lsm) %>%
-  # summarise(peakprice = max(value, na.rm = T)) %>%
-  # ungroup() %>%
-  filter(period == useyear) %>%
-  mutate(cbudget = as.numeric(cbudget)) %>%
-  filter(cbudget >= 600)
-
-tmpmif %>%
-  filter(cbudget == 600) %>%
-  rename(val600 = value) %>%
-  select(-cbudget, -scenario) %>%
-  left_join(tmpmif, .) %>%
-  mutate(
-    dt = value - val600,
-    dc = cbudget - 600,
-    tcre = 1000 * dt / dc
-  ) %>%
-  ggplot(aes(x = cbudget, y = tcre, color = lsm)) +
-  geom_point()
-
-
-# ===================================================================
-# Regional
-# ===================================================================
-usebudget <- musebudget
-# CDR Summary plots
-bigmif %>%
-  filter(
-    !(region %in% c("GLO", "World")),
-    variable %in% c(
-      "Emi|CO2|Cumulated|CDR|Land-Use Change"
-    )
-  ) %>%
-  filter(str_detect(policy, "PkBudg")) %>%
-  mutate(variable = paste0(variable, " [", unit, "]")) %>%
-  filter(period %in% c(2050, 2100)) %>%
-  filter(cbudget == usebudget) %>%
-  ggplot(aes(
-    x = region, y = value,
-    color = lsm, group = lsm
-  )) +
-  geom_point(size = 3) +
-  geom_line() +
-  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  coord_flip() +
-  facet_wrap(~ variable + period, scales = "fixed", ncol = 2) +
-  # facet_wrap(~variable+period, scales = "free", ncol = 2) +
-  scale_color_manual(values = modelcolors) +
-  labs(
-    x = "",
-    y = "",
-    color = "C densities from DVGM:"
-  )
-
-# ===================================================================
-# Investigating differences with standard assessment
-# ===================================================================
-
-mixbigmif %>%
-  filter(
-    (region %in% c("GLO", "World")),
-    variable %in% c(
-      "Emi|CO2|Cum",
-      "Harmonized|Emissions|CO2|Cum",
-      "MAGICC7 AR6|Surface Temperature (GSAT)|67p0th Percentile",
-      "Surface Air Temperature Change|q67"
-    ),
-    # lsm %in% c("CABLEPOP", "LPJwsl"),
-    lsm %in% c("LPJml"),
-    # cbudget %in% c(900, 920, 940, 960, 980)
-    between(cbudget, 800, 900)
-  ) %>%
-  filter(model %in% c("AR6","REMIND-MAgPIE")) %>%
-  ggplot(aes(x = period, y = value, color = lsm)) +
-  geom_line() +
-  scale_color_manual(values = modelcolors) +
-  facet_grid(variable ~ cbudget, scales = "free") +
-  theme_bw()
-
-
-# Transition indicators ==============================================
+# Figure B3: Transition indicators ==============================================
 bigmif %>%
   filter(
     region %in% c("GLO", "World"),
@@ -2409,72 +2210,10 @@ bigmif %>%
   theme_bw() +
   theme(legend.position = "bottom", legend.direction = "horizontal") +
   facet_wrap(~variable, scales = "free_y")
-ggsave("transition_indicators.png", width = 10, height = 5)
-ggsave("transition_indicators.svg", width = 10, height = 5)
+ggsave("figB3_transition_indicators.png", width = 10, height = 5)
+ggsave("figB3_transition_indicators.svg", width = 10, height = 5)
 
 
 # ===================================================================
 # Scratch
 # ===================================================================
-
-mixbigmif %>%
-  filter(
-    (region %in% c("GLO", "World")),
-    variable %in% c(
-      "Harmonized|Emissions|CO2",
-      "Harmonized|Emissions|CO2|MAGICC AFOLU",
-      "Harmonized|Emissions|CO2|MAGICC Fossil and Industrial",
-      "Harmonized|Emissions|CO2|Cum",
-      "Price|Carbon"
-    ),
-    lsm %in% c("CABLEPOP", "LPJwsl"),
-    cbudget %in% c(900, 920, 940, 960, 980)
-  ) %>%
-  ggplot(aes(x = period, y = value, color = lsm)) +
-  geom_line() +
-  scale_color_manual(values = modelcolors) +
-  facet_grid(variable ~ cbudget, scales = "free") +
-  theme_bw()
-
-
-
-
-nzmifraw %>%
-  left_join(sceninfo) %>%
-  filter(cbudget == musebudget)
-
-dum <- mixbigmif %>%
-  filter(
-    region %in% c("GLO", "World"),
-    variable %in% c(
-      "Emissions|CO2|Land|Cumulative|+|Land-use Change",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|++|Above Ground Carbon",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|++|Below Ground Carbon",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|+|Deforestation",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|+|Other land conversion",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|+|Peatland",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|+|Regrowth",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|+|Residual",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|+|Soil",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|+|Timber",
-      "Emissions|CO2|Land|Cumulative|Land-use Change|+|Wood Harvest"
-    )) %>% #select(scenario) %>% unique
-  filter(scenario == "C_ESM2025v05-CABLEPOP-SSP2-PkBudg720-rem-5") %>%
-  filter(period <= 2060) #%>%
-dum %>%
-  filter(variable != "Emissions|CO2|Land|Cumulative|+|Land-use Change") %>%
-  # ggplot(aes(x = period, y = value, color = variable)) +
-  # geom_line() +
-  ggplot(aes(x = period, y = value, fill = variable)) +
-  geom_area() +
-  geom_line(data = filter(
-    dum, variable == "Emissions|CO2|Land|Cumulative|+|Land-use Change"),
-    aes(x = period, y = value), linewidth = 2) +
-    geom_hline(yintercept = 0)
-
-
-# mixbigmif %>%
-#   filter(
-#     region %in% c("GLO", "World"),
-#     str_detect(variable, "Surface Air Temperature Change|")
-#     )
