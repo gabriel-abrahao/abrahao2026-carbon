@@ -22,8 +22,16 @@ read_filtmif <- function(mifpath) {
 if (rerun_bigmif || !file.exists("inbigmif.rds")) {
   cat("!!!!!!!! Re-running and caching bigmif !!!!!!!!!!\n")
   cat("[", format(Sys.time(), "%H:%M:%S"), "] Starting bigmif preprocessing\n")
-  miflist <- lapply(mifpaths, read_filtmif)
+  cat("Found ", length(mifpaths), " MIF files to read\n")
+
+  miflist <- lapply(seq_along(mifpaths), function(i) {
+    cat("[", format(Sys.time(), "%H:%M:%S"), "] Reading MIF file ", i, "/", length(mifpaths), ": ", basename(mifpaths[i]), "\n")
+    read_filtmif(mifpaths[i])
+  })
+
+  cat("[", format(Sys.time(), "%H:%M:%S"), "] Binding rows...\n")
   inbigmif <- bind_rows(miflist)
+  cat("[", format(Sys.time(), "%H:%M:%S"), "] Rows bound successfully\n")
   saveRDS(inbigmif, "inbigmif.rds")
   # inbigmif <- readRDS("inbigmif.rds")
 
@@ -113,6 +121,7 @@ if (rerun_bigmif || !file.exists("inbigmif.rds")) {
     write.csv("varlist_bigmif.csv", row.names = F)
 
   saveRDS(sceninfo, "sceninfo.rds")
+  # Note: renaming will be applied below after helper functions are defined
   saveRDS(bigmif, "bigmif.rds")
 } else {
   cat("!!!!!!!! Reading cached bigmif !!!!!!!!!!\n")
@@ -161,6 +170,12 @@ apply_model_filter <- function(df, include_vec) {
   }
   return(df)
 }
+
+# Apply renaming and filtering to bigmif
+cat("[", format(Sys.time(), "%H:%M:%S"), "] Applying model renaming to bigmif...\n")
+bigmif <- apply_model_rename(bigmif, rename_models$rename)
+bigmif <- apply_model_filter(bigmif, rename_models$include)
+cat("[", format(Sys.time(), "%H:%M:%S"), "] Model renaming/filtering complete for bigmif\n")
 
 # ==================================================================================
 # Append climate MIF and harmonized emissions ======================================
@@ -363,6 +378,14 @@ histfluxmif <-
     value
     )) %>%
   mutate(unit = str_replace(unit, "GtC", "GtCO2"))
+
+# Apply renaming and filtering to allglostocks and histfluxmif
+cat("[", format(Sys.time(), "%H:%M:%S"), "] Applying model renaming to allglostocks and histfluxmif...\n")
+allglostocks <- apply_model_rename(allglostocks, rename_models$rename)
+allglostocks <- apply_model_filter(allglostocks, rename_models$include)
+histfluxmif <- apply_model_rename(histfluxmif, rename_models$rename)
+histfluxmif <- apply_model_filter(histfluxmif, rename_models$include)
+cat("[", format(Sys.time(), "%H:%M:%S"), "] Model renaming/filtering complete\n")
 
 # ====================================================================
 # Apply renaming to modelcolors (final step)
