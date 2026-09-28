@@ -9,7 +9,8 @@ modelcolors <- c(
   "DLEM" = "#33a02c",
   "IBIS" = "#6A33C2",
   "JSBACH" = "#ff7f00",
-  "LPJml" = "#565656",
+  "LPJml" = "#565656", # Repeat for instances where the name might be wrong
+  "LPJmL" = "#565656", 
   "LPJwsl" = "#FFD700",
   "OCN" = "#00FF00",
   "ORCHIDEE" = "#778B00",
@@ -24,8 +25,7 @@ modelcolors <- c(
   "ISBACTRIP" = "#0000FF",
   "VISIT" = "#36648B",
   "YIBS" = "#00E2E5",
-  "LPJ-GUESS" = "#FDBF6F", # Shows up as "LPJGUESS" in some of the data
-  "LPJGUESS" = "#FDBF6F"
+  "LPJ-GUESS" = "#FDBF6F"
 )
 
 # CDR components, matching the mip::plotstyle colors used in the bar plots
