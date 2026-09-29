@@ -10,7 +10,7 @@
 # Cached data files
 /*.mif
 /*.mz
-/*.csv
+# /*.csv
 /*.nc
 /*.rds
 
