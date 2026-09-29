@@ -591,7 +591,7 @@ dum %>%
 ggsave("luc_per_forest.png", width = 8, height = 6)
 
 
-# Figure B10 : Summary for 2100 ==========================
+# Figure B11 : Summary for 2100 ==========================
 xvarname <- "Emi|CO2|+|Land-Use Change|Cum"
 xmif <- bigmif %>%
   filter(region %in% c("GLO", "World")) %>% # select(variable) %>% unique %>% print(n=1000)
@@ -735,8 +735,8 @@ dum %>%
     shape = "Climate parametrization",
     color = "C densities from DVGM:"
   )
-ggsave("figB10_summary_2100_tbudget_1p7K50_dvgm.png", width = 9, height = 9)
-ggsave("figB10_summary_2100_tbudget_1p7K50_dvgm.svg", width = 9, height = 9)
+ggsave("figB11_summary_2100_tbudget_1p7K50_dvgm.png", width = 9, height = 9)
+ggsave("figB11_summary_2100_tbudget_1p7K50_dvgm.svg", width = 9, height = 9)
 
 # Summary statistics for the figure
 dum %>% 
@@ -1361,8 +1361,8 @@ p_forest <- p_forest + theme(legend.position = "none")
 pcomb <- cowplot::plot_grid(p_price, p_lucemi, p_eneemi, p_forest, ncol = 2)
 cowplot::plot_grid(pcomb, leg, ncol = 1, rel_heights = c(1, 0.1)) +
   theme(plot.background = element_rect(fill = "white", color = NA))
-ggsave("budgetXall_combined.png", width = 11, height = 9)
-ggsave("budgetXall_combined.svg", width = 11, height = 9)
+ggsave("figB7_budgetXall_combined.png", width = 11, height = 9)
+ggsave("figB7_budgetXall_combined.svg", width = 11, height = 9)
 
 
 # Figure B8: CDR stacked bar breakdown for selected budget =========================================
@@ -1560,3 +1560,13 @@ ggsave("figB3_transition_indicators.svg", width = 10, height = 5)
 # ===================================================================
 # Scratch
 # ===================================================================
+
+bigmif %>%
+  filter(period == 2050, variable == "Emi|CO2", region == "GLO") %>%
+  filter_tbudget(tbudgetinfo) %>%
+  select(model,scenario,lsm) %>%
+  mutate(modeltag = ifelse(model == "Density effect", "DenEff", "DenBudEff")) %>%
+  mutate(newscenario = str_replace(scenario, "C_ESM2025v05", "E25_1p7K")) %>%
+  mutate(newscenario = str_replace(newscenario, "rem-5", modeltag)) %>%
+  select(scenario,newscenario) %>%
+  write.csv2("scenario_names_SCI_v2.csv", row.names = F)
