@@ -1,5 +1,6 @@
 require(tidyverse)
 require(quitte)
+require(piamInterfaces)
 
 rawmiffolder <- "/mnt/c/pik/abrahao2026-carbon/clusterdown_v05p1/"
 # rawmiffolder <- "/p/projects/dipol/paperLandMatters/v6/cpl/remind/output/"
@@ -58,14 +59,14 @@ d <- generateIIASASubmission(
      generatePlots = TRUE
     )
 
-checkSummations(
-    d, 
-    template = "mapping_ScenarioMIP_abrahao_v1.csv",
-    summationsFile = "summation_groups_ScenarioMIP_RESCUE.csv",
-    outputDirectory = "output_final",
-     outputFilename = "submission_Abrahao2026_v1.xlsx",
-    logFile = "output_final/sum_log.txt",
-    logAppend = FALSE,
-    generatePlots = TRUE,
-    dataDumpFile = "output_final/dump.csv"
-    )
+# checkSummations(
+#     d, 
+#     template = "mapping_ScenarioMIP_abrahao_v1.csv",
+#     summationsFile = "summation_groups_ScenarioMIP_RESCUE.csv",
+#     outputDirectory = "output_final",
+#      outputFilename = "submission_Abrahao2026_v1.xlsx",
+#     logFile = "output_final/sum_log.txt",
+#     logAppend = FALSE,
+#     generatePlots = TRUE,
+#     dataDumpFile = "output_final/dump.csv"
+#     )
