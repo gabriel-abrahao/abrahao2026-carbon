@@ -1,14 +1,12 @@
 require(tidyverse)
 require(quitte)
-e()
-
 
 rawmiffolder <- "/mnt/c/pik/abrahao2026-carbon/clusterdown_v05p1/"
 # rawmiffolder <- "/p/projects/dipol/paperLandMatters/v6/cpl/remind/output/"
 renamedfolder <- "abrahao_renamed_mifs/"
 conffname <- "scenario_names_SCI_v2.csv"
 
-dorename <- TRUE
+dorename <- FALSE
 
 conf <- read.csv2(conffname) %>% as_tibble
 
@@ -50,3 +48,24 @@ if (dorename) {
         write.mif(inmif, conf$renamedpath[i])
     }
 }
+
+
+d <- generateIIASASubmission(
+    conf$renamedpath,
+     mapping = "mapping_ScenarioMIP_abrahao_v1.csv",
+     outputDirectory = "output_final",
+     checkSummation = "summation_groups_ScenarioMIP_RESCUE.csv",
+     generatePlots = TRUE
+    )
+
+checkSummations(
+    d, 
+    template = "mapping_ScenarioMIP_abrahao_v1.csv",
+    summationsFile = "summation_groups_ScenarioMIP_RESCUE.csv",
+    outputDirectory = "output_final",
+     outputFilename = "submission_Abrahao2026_v1.xlsx",
+    logFile = "output_final/sum_log.txt",
+    logAppend = FALSE,
+    generatePlots = TRUE,
+    dataDumpFile = "output_final/dump.csv"
+    )
